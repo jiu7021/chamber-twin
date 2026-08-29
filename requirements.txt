@@ -1,0 +1,10 @@
+pytest
+xarray
+netCDF4
+pandas
+openpyxl
+pypdf
+numpy
+scipy
+pyarrow
+statsmodels

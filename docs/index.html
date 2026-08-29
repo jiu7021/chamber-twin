@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>식각 챔버 진공 디지털 트윈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <h1>식각 챔버 진공 디지털 트윈</h1>
+    <p class="sub">챔버 압력은 자동제어(APC)로 고정되어 고장을 보여주지 않는다.
+       정보는 <b>스로틀 밸브 각도</b>에 있고, 그 채널은 실측 데이터에 없다.
+       그래서 물리 모델로 복원한다.</p>
+    <div class="hdr-meta">
+      <span id="selftest-badge" class="badge">엔진 검증 중…</span>
+      <span class="badge ghost">실측 96 웨이퍼 · Zenodo 10.5281/zenodo.17122442</span>
+      <a class="badge ghost link" href="https://github.com/jiu7021/etch-chamber-vacuum-twin">저장소</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ─────────────── 상단: 챔버 도식 + 계기 ─────────────── -->
+  <section class="panel grid-top">
+    <div class="schematic">
+      <svg id="chamber-svg" viewBox="0 0 460 300" role="img" aria-label="챔버 배기계 도식">
+        <!-- 가스 유입 -->
+        <text x="18" y="34" class="lbl">가스 유입 (MFC)</text>
+        <line x1="20" y1="52" x2="120" y2="52" class="pipe"/>
+        <g id="flow-arrows"></g>
+        <!-- 챔버 -->
+        <rect x="120" y="26" width="180" height="120" rx="6" class="chamber-body"/>
+        <rect id="plasma" x="132" y="60" width="156" height="52" rx="26" class="plasma"/>
+        <text x="210" y="46" class="lbl mid">챔버</text>
+        <text x="210" y="92" class="press-big" id="svg-press">—</text>
+        <text x="210" y="108" class="lbl mid" id="svg-press-unit">mTorr</text>
+        <rect x="150" y="126" width="120" height="8" rx="2" class="wafer"/>
+        <text x="210" y="143" class="lbl mid tiny">웨이퍼 200 mm</text>
+        <!-- 배기 배관 -->
+        <line x1="210" y1="146" x2="210" y2="186" class="pipe"/>
+        <!-- 스로틀 밸브 -->
+        <circle cx="210" cy="186" r="17" class="valve-body"/>
+        <line id="valve-disc" x1="196" y1="186" x2="224" y2="186" class="valve-disc"/>
+        <text x="248" y="183" class="lbl">스로틀 밸브</text>
+        <text x="248" y="196" class="lbl accent" id="svg-theta">—</text>
+        <!-- TMP -->
+        <line x1="210" y1="203" x2="210" y2="232" class="pipe"/>
+        <g id="tmp-group">
+          <circle cx="210" cy="248" r="17" class="pump-body"/>
+          <g id="tmp-blades"></g>
+        </g>
+        <text x="248" y="245" class="lbl">터보분자펌프</text>
+        <text x="248" y="258" class="lbl dim" id="svg-pump">—</text>
+        <!-- 포어라인 -->
+        <line x1="227" y1="248" x2="330" y2="248" class="pipe"/>
+        <text x="336" y="245" class="lbl">포어라인</text>
+        <text x="336" y="258" class="lbl dim">→ 러핑펌프</text>
+        <!-- 누설 표시 -->
+        <g id="leak-mark" class="hidden">
+          <path d="M300 60 l18 -10 M300 60 l18 4 M300 60 l14 12" class="leak-ray"/>
+          <text x="322" y="52" class="lbl warn">누설</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="gauges">
+      <div class="gauge hero">
+        <div class="g-lab">챔버 압력</div>
+        <div class="g-val" id="g-press">—</div>
+        <div class="g-unit">mTorr</div>
+        <div class="g-delta" id="g-press-delta">설정값 대비 —</div>
+      </div>
+      <div class="gauge hero accent">
+        <div class="g-lab">스로틀 밸브 각도 <span class="tag">복원된 값</span></div>
+        <div class="g-val" id="g-theta">—</div>
+        <div class="g-unit">deg &nbsp;·&nbsp; <span id="g-open">—</span>% 개방</div>
+        <div class="g-delta" id="g-theta-delta">기준 대비 —</div>
+      </div>
+      <div class="gauge">
+        <div class="g-lab">유효 배기속도 S<sub>eff</sub></div>
+        <div class="g-val sm" id="g-seff">—</div><div class="g-unit">L/s</div>
+      </div>
+      <div class="gauge">
+        <div class="g-lab">총 스루풋 Q</div>
+        <div class="g-val sm" id="g-q">—</div><div class="g-unit">Pa·m³/s</div>
+      </div>
+      <div class="gauge">
+        <div class="g-lab">Knudsen 수 (배관)</div>
+        <div class="g-val sm" id="g-kn">—</div><div class="g-unit" id="g-regime">—</div>
+      </div>
+      <div class="gauge">
+        <div class="g-lab">경과 시간</div>
+        <div class="g-val sm" id="g-time">—</div><div class="g-unit">s</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 차트 ─────────────── -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>실시간 응답</h2>
+      <div class="hint">고장을 넣어도 <b>압력은 거의 움직이지 않고</b> 밸브 각도만 움직인다 — 이것이 이 프로젝트의 핵심 발견이다.</div>
+    </div>
+    <div class="charts">
+      <div class="chart-wrap"><canvas id="c-press"></canvas><span class="c-lab">챔버 압력 [mTorr]</span></div>
+      <div class="chart-wrap"><canvas id="c-theta"></canvas><span class="c-lab accent">밸브 각도 [deg]</span></div>
+      <div class="chart-wrap"><canvas id="c-seff"></canvas><span class="c-lab">유효 배기속도 [L/s]</span></div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 제어 ─────────────── -->
+  <section class="panel grid-ctl">
+    <div class="ctl-col">
+      <h2>공정 조건</h2>
+      <label class="sld">가스 유량 Q<sub>MFC</sub> <output id="o-q">1.000</output> Pa·m³/s
+        <input type="range" id="i-q" min="0.2" max="2.0" step="0.02" value="1.0"></label>
+      <label class="sld">압력 설정값 <output id="o-sp">40.0</output> mTorr
+        <input type="range" id="i-sp" min="10" max="100" step="0.5" value="40"></label>
+
+      <div class="apc-box">
+        <div class="apc-head">
+          <span>APC 자동압력제어</span>
+          <label class="switch"><input type="checkbox" id="i-apc" checked><span class="slider"></span></label>
+        </div>
+        <p class="apc-note" id="apc-note">켜짐 — 밸브가 압력을 설정값에 붙든다. 고장은 압력이 아니라 <b>밸브 각도</b>에 나타난다.</p>
+      </div>
+    </div>
+
+    <div class="ctl-col">
+      <h2>고장 주입</h2>
+      <label class="sld">실누설 Q<sub>leak</sub> <output id="o-leak">0.000</output> Pa·m³/s
+        <input type="range" id="i-leak" min="0" max="0.3" step="0.005" value="0"></label>
+      <label class="sld">아웃가싱 q₁ <output id="o-og">0.000</output> Pa·m³/s
+        <input type="range" id="i-og" min="0" max="0.2" step="0.005" value="0"></label>
+      <label class="sld">아웃가싱 지수 α <output id="o-al">1.00</output> <span class="dim">(금속 1.0 / 폴리머 0.5)</span>
+        <input type="range" id="i-al" min="0.3" max="1.3" step="0.05" value="1.0"></label>
+      <label class="sld">TMP 성능 <output id="o-pump">100</output> %
+        <input type="range" id="i-pump" min="50" max="100" step="1" value="100"></label>
+      <label class="sld">밸브 C<sub>max</sub> (마모) <output id="o-wear">100</output> %
+        <input type="range" id="i-wear" min="50" max="100" step="1" value="100"></label>
+      <label class="sld">MFC 제로 드리프트 <output id="o-mfc">0.00</output> Pa·m³/s
+        <input type="range" id="i-mfc" min="-0.15" max="0.15" step="0.005" value="0"></label>
+      <div class="btn-row">
+        <button id="b-clearfault" class="btn ghost">고장 해제</button>
+        <button id="b-reset" class="btn ghost">전체 초기화</button>
+      </div>
+    </div>
+
+    <div class="ctl-col">
+      <h2>Rate-of-Rise 진단</h2>
+      <p class="dim sm">게이트 밸브를 닫고 압력 상승을 측정한다. <b>V·dP/dt = Q<sub>total</sub></b>.
+         기울기가 일정하면 실누설, 감쇠하면 아웃가싱이다.</p>
+      <button id="b-ror" class="btn primary">RoR 시퀀스 실행 (60 s)</button>
+      <div id="ror-status" class="ror-status">대기</div>
+      <table class="ror-tbl">
+        <thead><tr><th>항목</th><th>추정</th><th>주입 참값</th></tr></thead>
+        <tbody>
+          <tr><td>실누설 Q<sub>leak</sub></td><td id="r-ql">—</td><td id="r-qlt">—</td></tr>
+          <tr><td>아웃가싱 q₁</td><td id="r-q1">—</td><td id="r-q1t">—</td></tr>
+          <tr><td>지수 α</td><td id="r-al">—</td><td id="r-alt">—</td></tr>
+        </tbody>
+      </table>
+      <canvas id="c-ror" class="ror-canvas"></canvas>
+    </div>
+  </section>
+
+  <!-- ─────────────── 시나리오 ─────────────── -->
+  <section class="panel">
+    <div class="panel-head"><h2>시나리오 — 클릭해서 직접 확인</h2></div>
+    <div class="scen">
+      <button class="scen-card" data-scen="leak">
+        <span class="n">1</span><b>누설을 넣어본다</b>
+        <span>압력은 그대로인데 밸브만 열린다. 압력계로는 못 잡는다.</span></button>
+      <button class="scen-card" data-scen="apcoff">
+        <span class="n">2</span><b>APC를 꺼본다</b>
+        <span>같은 누설인데 이번엔 압력이 움직인다. 제어가 정보를 가린 것이다.</span></button>
+      <button class="scen-card" data-scen="pump">
+        <span class="n">3</span><b>펌프를 노후시킨다</b>
+        <span>밸브가 더 열려 보상한다. 각도에서 펌프 성능을 역산할 수 있다.</span></button>
+      <button class="scen-card" data-scen="ror">
+        <span class="n">4</span><b>실누설 vs 아웃가싱</b>
+        <span>둘 다 압력을 올리지만 RoR 기울기 모양이 다르다.</span></button>
+    </div>
+  </section>
+
+  <!-- ─────────────── 검증 ─────────────── -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>엔진 검증</h2>
+      <div class="hint">브라우저 엔진을 해석해에 대조한 결과다. Python 판은 pytest 39개를 통과했다.</div>
+    </div>
+    <div id="selftest" class="selftest"></div>
+    <div class="foot-note">
+      <b>실측 대조 결과</b> — 고정 배기속도 모델은 압력 변동폭 대비 RMSE 34.8 %, APC 모델은 8.2 %.
+      96개 웨이퍼 전부에서 APC 모델이 우세했다.
+      <b>고장 진단</b> — Q<sub>leak</sub> 추정 오차 중앙값 0.14 %, S<sub>pump</sub>/C<sub>max</sub>/Q 0.21 %, 검출 지연 중앙값 5.07 s.
+      단, TMP 성능저하와 밸브 마모는 정상상태 식이 하나뿐이라 서로 분리되지 않는다.
+    </div>
+  </section>
+</main>
+
+<footer class="ftr">
+  단위는 SI 단일계로 계산하고 표시 경계에서만 환산한다 · 시험대 파라미터는 시뮬레이터 설정값이며 실제 장비 스펙이 아니다
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
