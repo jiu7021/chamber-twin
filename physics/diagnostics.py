@@ -161,3 +161,79 @@ def classify(res: RoRResult, leak_threshold: float) -> str:
     if res.q_leak > leak_threshold:
         return "실누설"
     return "정상"
+
+
+# ---------------------------------------------------------------- 다중 운전점 진단
+
+
+@dataclass(frozen=True)
+class MultiPointResult:
+    """다중 운전점 배기계 식별 결과.
+
+    Attributes:
+        c_max: 밸브 완전개방 컨덕턴스 [m³/s]
+        s_pump: 펌프 배기속도 [m³/s]
+        r2: 적합 결정계수
+        cond: 설계행렬 조건수 (클수록 운전점이 서로 비슷해 분리가 나쁘다)
+        n: 사용한 운전점 수
+    """
+
+    c_max: float
+    s_pump: float
+    r2: float
+    cond: float
+    n: int
+
+
+def estimate_multipoint(points: list[tuple[float, float, float]]) -> MultiPointResult | None:
+    """서로 다른 운전점에서 밸브 완전개방 컨덕턴스와 펌프 배기속도를 **분리** 추정한다.
+
+    단일 운전점에서는 정상상태 식이 하나뿐이라 (C_max, S_pump) 를 동시에 결정할 수 없다.
+
+        1/S_eff = 1/[C_max·(1 − cos θ)] + 1/S_pump = P/Q          … 식 1개, 미지수 2개 → 부정
+
+    그러나 유량 Q 를 바꾸면 밸브각 θ 가 따라 움직이고 f = 1 − cos θ 도 바뀐다.
+    식을 미지수에 대해 정리하면 **선형**이다.
+
+        P/Q = x·(1/f) + y,      x = 1/C_max,  y = 1/S_pump
+
+    즉 운전점마다 독립적인 방정식이 하나씩 생기므로, 2개 이상이면 최소제곱으로 둘 다 풀린다.
+
+    물리적 직관: 밸브를 많이 닫으면 **밸브가 병목**이 되고 많이 열면 **펌프가 병목**이 된다.
+    여러 개도에서 재면 둘의 기여를 나눌 수 있다.
+
+    Args:
+        points: [(Q [Pa·m³/s], P [Pa], θ [rad]), …] — 각각 정상상태에 도달한 뒤의 값
+
+    Returns:
+        MultiPointResult. 운전점이 2개 미만이거나 축퇴하면 None.
+
+    Note:
+        운전점들의 θ 가 서로 비슷하면 1/f 열의 변화가 작아 설계행렬이 축퇴한다.
+        반환되는 `cond` 로 그 상태를 감시할 것 — 통상 1e3 을 넘으면 신뢰하지 않는다.
+    """
+    if len(points) < 2:
+        return None
+    rows, rhs = [], []
+    for q, p, th in points:
+        if q <= 0 or p <= 0:
+            continue
+        f = 1.0 - math.cos(min(max(th, 1e-9), math.pi / 2))
+        if f <= 1e-12:
+            continue
+        rows.append([1.0 / f, 1.0])
+        rhs.append(p / q)
+    if len(rows) < 2:
+        return None
+    A = np.asarray(rows, dtype=float)
+    b = np.asarray(rhs, dtype=float)
+    cond = float(np.linalg.cond(A))
+    coef, *_ = np.linalg.lstsq(A, b, rcond=None)
+    x, y = float(coef[0]), float(coef[1])
+    if x <= 0 or y <= 0:
+        return None
+    pred = A @ coef
+    ss_res = float(np.sum((b - pred) ** 2))
+    ss_tot = float(np.sum((b - b.mean()) ** 2))
+    r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 1.0
+    return MultiPointResult(c_max=1.0 / x, s_pump=1.0 / y, r2=r2, cond=cond, n=len(rows))

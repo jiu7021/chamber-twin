@@ -323,6 +323,10 @@ $('b-ror').addEventListener('click', () => {
   if (rorState.active) return;
   rorState.active = true; rorState.t0 = ch.t; rorState.samples = [];
   ch.gateClosed = true; ch.P = Math.max(ch.P * 0.02, mtorrToPa(0.4));  // 배기 후 시작
+  // RoR 관례: 아웃가싱 시계는 챔버를 격리한 시점에서 다시 센다.
+  // q(t) = q1·t^(−α) 의 t 원점을 격리 시점으로 두는 것이 표준 해석이며,
+  // 추정기도 RoR 시작을 원점으로 보므로 이걸 맞춰야 α 추정이 정확해진다.
+  ch.tOutgasStart = ch.t;
   $('b-ror').disabled = true;
   $('ror-status').className = 'ror-status run';
   $('r-qlt').textContent = ch.qLeak.toExponential(3);

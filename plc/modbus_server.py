@@ -244,15 +244,21 @@ class Plant:
     def estimate_health(self) -> tuple[float, float, bool]:
         """밸브각과 압력으로 TMP 성능비 / 밸브 C_max 비를 역산한다.
 
-        정상상태 식이 하나뿐이라 둘을 동시에 결정할 수 없다.
+        **알고 있는 정보만 쓴다.** 현장 제어기가 아는 것은 MFC 지령값이지 실제 총 스루풋이 아니다.
+        미지의 누설·아웃가싱이 있으면 실제 스루풋이 지령보다 크므로 S_eff 를 과소평가하게 되고,
+        그 결과 **누설이 펌프 성능 저하로 오진된다.** 이것은 구현 결함이 아니라 실제 계측 한계이며,
+        RoR 시퀀스(챔버를 격리해 가스부하를 직접 재는 것)가 필요한 이유다.
+
+        또한 정상상태 식이 하나뿐인데 미지수가 둘(C_max, S_pump)이라 동시 결정이 불가능하다.
         밸브각이 기준보다 열렸으면 펌프 저하를 의심해 TMP 를 역산하고, 아니면 밸브를 역산한다.
 
         Returns:
             (TMP 성능비, 밸브 C_max 비, assume_pump 플래그)
         """
-        if self.p <= 0 or self.gate_closed:
+        if self.p <= 0 or self.gate_closed or not self.process_run:
             return float("nan"), float("nan"), True
-        s_req = self.q_total() / self.p
+        q_known = self.q_mfc                      # 제어기가 아는 값은 지령뿐이다
+        s_req = q_known / self.p
         frac = 1.0 - math.cos(min(max(self.theta, 1e-6), math.pi / 2))
         assume_pump = self.theta >= self.theta_base
         if assume_pump:

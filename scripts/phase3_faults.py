@@ -27,6 +27,7 @@ from physics.chamber import (  # noqa: E402
     APCController, ChamberConfig, ThrottleValve, outgassing_rate,
     series_pumping_speed, simulate,
 )
+from physics.diagnostics import estimate_ror  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
@@ -148,32 +149,6 @@ def rate_of_rise(q_leak: float, q1: float, alpha: float, t_ror: float = 300.0,
     return {"t": t, "p": p, "p_true": p_true}
 
 
-def estimate_ror(t: np.ndarray, p: np.ndarray, t_min: float = 1.0) -> dict:
-    """RoR 곡선에서 Q_leak, q1, α 를 분리 추정한다.
-
-    적분형 모델 (미분 잡음을 피하기 위해 압력 자체를 적합):
-        P(t) − P(t0) = (Q_leak/V)·(t − t0) + (q1/V)·∫ t^(−α) dt
-    α 를 소인하며 선형 최소제곱을 반복해 잔차가 최소인 α 를 고른다.
-    """
-    m = t >= t_min
-    tt, pp = t[m], p[m]
-    y = pp - pp[0]
-    best = None
-    for alpha in np.linspace(0.2, 1.6, 141):
-        if abs(alpha - 1.0) < 1e-9:
-            basis = np.log(tt / tt[0])
-        else:
-            basis = (tt ** (1 - alpha) - tt[0] ** (1 - alpha)) / (1 - alpha)
-        X = np.column_stack([tt - tt[0], basis])
-        coef, *_ = np.linalg.lstsq(X, y, rcond=None)
-        sse = float(np.sum((y - X @ coef) ** 2))
-        if best is None or sse < best[0]:
-            best = (sse, alpha, coef)
-    sse, alpha, coef = best
-    return {"q_leak_est": float(coef[0] * V_M3), "q1_est": float(coef[1] * V_M3),
-            "alpha_est": float(alpha), "sse": sse}
-
-
 # ---------------------------------------------------------------- 고장 시나리오
 
 
@@ -246,19 +221,26 @@ def main() -> None:
             eq, e1, ea = [], [], []
             for sd in range(1 if sc == 0.0 else N_SEEDS):
                 r = rate_of_rise(ql, q1, al, rng=np.random.default_rng(sd), noise_scale=sc)
-                e = estimate_ror(r["t"], r["p"])
+                e = estimate_ror(list(zip(r["t"].tolist(), r["p"].tolist())), V_M3)
+                if e is None:
+                    continue
                 if ql > 0:
-                    eq.append((e["q_leak_est"] - ql) / ql * 100)
+                    eq.append((e.q_leak - ql) / ql * 100)
                 if q1 > 0:
-                    e1.append((e["q1_est"] - q1) / q1 * 100)
-                ea.append(e["alpha_est"])
-            a = np.array(ea)
-            print(f"  {nm:26s} {sc:5.0f}× {summarize(eq):>14s} {summarize(e1):>14s} "
-                  f"{a.mean():8.3f}±{a.std():.3f}  (참값 {al})")
+                    e1.append((e.q1 - q1) / q1 * 100)
+                ea.append(e.alpha if e.outgas_accepted else float("nan"))
+            a = np.array(ea, dtype=float)
+            fin = a[np.isfinite(a)]
+            a_txt = (f"{fin.mean():6.3f}±{fin.std():.3f}" if fin.size
+                     else "     기각     ")          # 모델선택이 아웃가싱을 기각한 경우
+            print(f"  {nm:26s} {sc:5.0f}x {summarize(eq):>14s} {summarize(e1):>14s} "
+                  f"{a_txt:>14s}  (참값 {al})")
             rows.append({"고장": f"RoR/{nm}", "잡음배율": sc,
                          "오차%_Q_leak": np.mean(np.abs(eq)) if eq else np.nan,
                          "오차%_q1": np.mean(np.abs(e1)) if e1 else np.nan,
-                         "추정_alpha": a.mean(), "참값_alpha": al})
+                         "추정_alpha": float(fin.mean()) if fin.size else np.nan,
+                         "참값_alpha": al,
+                         "아웃가싱_채택율": float(fin.size / max(len(a), 1))})
 
     # ---------- 3·4·5
     scenarios = []

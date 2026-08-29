@@ -22,7 +22,9 @@
 | 실측 압력 재현 | 고정 배기속도 모델 RMSE **34.8 %** → APC 모델 **8.2 %** (96/96 웨이퍼에서 우세) |
 | 고장 진단 (5종) | Q_leak 오차 중앙값 **0.14 %**, S_pump/C_max/Q **0.21 %**, 검출 지연 **5.07 s** |
 | RoR 실누설/아웃가싱 분리 | α 추정 **1.000 / 0.500** (참값 1.0 / 0.5), 누설만일 때 아웃가싱 올바로 기각 |
-| 검증 | pytest **50 개** 통과 (해석해 대조 · 단위 왕복 · 추정기 식별성) |
+| TMP ↔ 밸브 분리 | 다중 운전점 진단으로 **오차 0.5 % 이내** 분리 (단일 운전점에서는 불가) |
+| HIL 제어 루프 | 위상여유 **+83.3°**, 오버슈트 7.14 % (초기 이득은 20°·22.9 % 로 부적합이었다) |
+| 검증 | pytest **58 개** 통과 (해석해 대조 · 단위 왕복 · 추정기 식별성 · 다중 운전점) |
 
 ## 어떻게 진행했나
 
@@ -46,7 +48,7 @@ docs/          인터랙티브 웹 시뮬레이터 (GitHub Pages, 정적)
 physics/       물리 엔진 — units · chamber · diagnostics · rfmatch · steps · fit · dataio
 plc/           OpenPLC · SCADA 연동 — Modbus 맵 · TCP 슬레이브 · ST 프로그램
 scripts/       Phase 0~3 분석 스크립트
-tests/         pytest 50 개
+tests/         pytest 58 개
 reports/       Phase 별 보고서 + 그림
 ```
 
@@ -54,7 +56,7 @@ reports/       Phase 별 보고서 + 그림
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m pytest tests/ -q          # 검증 50개
+.venv/bin/python -m pytest tests/ -q          # 검증 58개
 bash scripts/download.sh                       # 공개 데이터 내려받기 (약 10 MB)
 ```
 
@@ -67,7 +69,8 @@ python3 -m http.server 8766 --directory docs
 PLC 연동은 [plc/README.md](plc/README.md) 참조.
 
 ```bash
-python plc/modbus_server.py --port 5020 --local-apc
+python plc/modbus_server.py --port 5020 --local-apc   # 트윈을 Modbus 슬레이브로 노출
+python plc/hil_check.py                                # PLC 제어 루프 안정성 검증
 ```
 
 ## 데이터 출처
@@ -91,8 +94,10 @@ OES 스펙트럼(약 8 GB)은 이 프로젝트에서 사용하지 않는다.
 
 ## 알려진 한계
 
-1. **TMP 성능저하와 스로틀 밸브 마모는 분리되지 않는다.** 정상상태 식이 하나인데 미지수가 둘이다.
-   포어라인 압력을 함께 쓰는 것이 정공법이다.
+1. **TMP 성능저하와 밸브 마모는 *단일 운전점에서만* 분리되지 않는다.** 유량을 몇 단계 바꿔
+   (Q, P, θ) 를 2점 이상 모으면 식이 선형이 되어 둘 다 풀린다 — 시뮬레이터 실측 오차 0.5 % 이내.
+   앞선 보고서들이 이를 원리적 한계로 쓴 것은 과했고, 정정해 두었다.
+   (포어라인 압력은 누설만 가른다. TMP 저하와 밸브 마모에는 반응하지 않는다.)
 2. **압력·유량의 절대 단위가 미확정이다.** 데이터셋에 단위 메타데이터가 없어 Torr 계열과
    mbar 계열이 내부 증거로 분리되지 않는다. 모든 분석을 단위 불가지론으로 작성했다.
 3. **5 Hz 샘플링은 과도응답 식별에 부족하다** (τ/dt = 1.24~1.67, 통상 요구 ≳ 5).

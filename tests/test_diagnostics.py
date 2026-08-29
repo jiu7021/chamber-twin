@@ -116,3 +116,66 @@ def test_noise_robustness():
     r = estimate_ror(make_samples(1.0e-2, 2.0e-2, 1.0, quant_rel=0.0075), V)
     assert r.outgas_accepted
     assert r.alpha == pytest.approx(1.0, abs=0.10)
+
+
+# ---------------------------------------------------------------- 다중 운전점 진단
+
+from physics.diagnostics import estimate_multipoint  # noqa: E402
+
+C_MAX_TRUE, S_PUMP_TRUE = 2.000, 1.500      # m³/s
+
+
+def make_points(q_list, c_max=C_MAX_TRUE, s_pump=S_PUMP_TRUE, p_sp=5.33, quant_deg=0.0):
+    """정상상태 해석해로 (Q, P, θ) 운전점을 만든다.
+
+    각 Q 에서 APC 가 압력을 p_sp 로 잡으므로 S_eff = Q/p_sp 이고,
+    거기서 필요한 밸브각을 역산한다.
+    """
+    pts = []
+    for q in q_list:
+        s_eff = q / p_sp
+        c = 1.0 / (1.0 / s_eff - 1.0 / s_pump)
+        th = math.acos(max(min(1.0 - c / c_max, 1.0), -1.0))
+        if quant_deg > 0:                      # 밸브각 계측 분해능
+            d = math.degrees(th)
+            th = math.radians(round(d / quant_deg) * quant_deg)
+        pts.append((q, p_sp, th))
+    return pts
+
+
+def test_multipoint_separates_pump_and_valve():
+    """단일 운전점에서 불가능한 (C_max, S_pump) 분리가 다중 운전점에서는 된다."""
+    r = estimate_multipoint(make_points([0.7, 0.9, 1.1, 1.3]))
+    assert r is not None
+    assert r.c_max == pytest.approx(C_MAX_TRUE, rel=0.01)
+    assert r.s_pump == pytest.approx(S_PUMP_TRUE, rel=0.01)
+    assert r.r2 > 0.999
+
+
+@pytest.mark.parametrize("c_frac,s_frac", [(1.0, 0.8), (0.8, 1.0), (0.9, 0.9), (0.7, 1.0)])
+def test_multipoint_identifies_which_component_degraded(c_frac, s_frac):
+    """어느 쪽이 열화했는지 정확히 짚어야 한다."""
+    pts = make_points([0.7, 0.9, 1.1, 1.3],
+                      c_max=C_MAX_TRUE * c_frac, s_pump=S_PUMP_TRUE * s_frac)
+    r = estimate_multipoint(pts)
+    assert r.c_max == pytest.approx(C_MAX_TRUE * c_frac, rel=0.02)
+    assert r.s_pump == pytest.approx(S_PUMP_TRUE * s_frac, rel=0.02)
+
+
+def test_multipoint_needs_two_points():
+    assert estimate_multipoint(make_points([1.0])) is None
+    assert estimate_multipoint([]) is None
+
+
+def test_multipoint_condition_number_flags_degeneracy():
+    """운전점이 서로 가까우면 조건수가 커져 신뢰도가 낮아진다."""
+    near = estimate_multipoint(make_points([0.99, 1.00, 1.01]))
+    wide = estimate_multipoint(make_points([0.6, 1.0, 1.4]))
+    assert near.cond > wide.cond
+
+
+def test_multipoint_with_angle_quantization():
+    """밸브각 분해능 0.09° (전스트로크의 0.1 %) 에서도 쓸 만한가."""
+    r = estimate_multipoint(make_points([0.6, 0.8, 1.0, 1.2, 1.4], quant_deg=0.09))
+    assert r.c_max == pytest.approx(C_MAX_TRUE, rel=0.10)
+    assert r.s_pump == pytest.approx(S_PUMP_TRUE, rel=0.10)

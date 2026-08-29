@@ -228,10 +228,22 @@ ror_timeout(IN := (ror_state = 1) OR (ror_state = 2), PT := T#300s);
 IF ror_timeout.Q THEN ror_state := 0; END_IF;      (* 응답 없으면 복귀 *)
 
 (* ---------------- APC PI 제어 ---------------- *)
+(*
+   PI 이득 — plc/hil_check.py 로 검증한 값이다.
+
+   루프 지연: Modbus 폴링 200 ms + 스캔 100 ms/2 + 밸브 지연 50 ms = 300 ms.
+   챔버 시정수 V/S_eff = 0.267 s 이므로 지연/시정수 = 1.13 이다. 지연이 시정수와 맞먹으므로
+   이득을 크게 잡으면 진동한다.
+
+   검증 결과 (초기 28 mTorr -> 설정값 40 mTorr 스텝):
+       KP=0.40 KI=1.60 (초기안)  위상여유 +20.0 deg, 오버슈트 +22.94 %, 설정값 교차 138 회  → 부적합
+       KP=0.20 KI=0.40 (채택)    위상여유 +83.3 deg, 오버슈트  +7.14 %, 교차 1 회
+                                 스텝 정착 1.6 s, 외란(누설) 정착 4.1 s
+*)
 apc(PV      := pv_mtorr,
     SP      := sp_mtorr,
-    KP      := 0.40,      (* [deg/mTorr] — 시험대 튜닝값 *)
-    KI      := 1.60,      (* [deg/(mTorr*s)] *)
+    KP      := 0.20,      (* [deg/mTorr]     hil_check.py 검증값 *)
+    KI      := 0.40,      (* [deg/(mTorr*s)] hil_check.py 검증값 *)
     DT      := SCAN_S,
     ENABLE  := HMI_RUN AND NOT IX_ROR_RUN,
     MAN_CMD := WORD_TO_REAL(HMI_MAN_VALVE) / K_DEG100,
