@@ -1,0 +1,27 @@
+{
+  "name": "scada",
+  "protocol": "modbus-tcp",
+  "modbusSlaveConfig": {
+    "enabled": true,
+    "networkInterface": "0.0.0.0",
+    "port": 502,
+    "bufferMapping": {
+      "holdingRegisters": {
+        "qwCount": 128,
+        "mwCount": 64,
+        "mdCount": 0,
+        "mlCount": 0
+      },
+      "coils": {
+        "qxBits": 1024,
+        "mxBits": 64
+      },
+      "discreteInputs": {
+        "ixBits": 1024
+      },
+      "inputRegisters": {
+        "iwCount": 128
+      }
+    }
+  }
+}

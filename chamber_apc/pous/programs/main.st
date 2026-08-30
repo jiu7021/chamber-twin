@@ -18,20 +18,30 @@ PROGRAM main
     QX_GATE_CLOSE : BOOL AT %QX100.1;
     QX_ROR_START : BOOL AT %QX100.2;
     QX_PROC_RUN : BOOL AT %QX100.5;
-    HMI_AUTO : BOOL := TRUE;
-    HMI_RUN : BOOL := TRUE;
-    HMI_ROR_REQ : BOOL;
-    HMI_ALM_RESET : BOOL;
-    HMI_SP : INT := 4000;
-    HMI_MFC : INT := 10000;
-    HMI_MAN_VALVE : INT := 2677;
-    ALM_P_HIGH : BOOL;
-    ALM_P_LOW : BOOL;
-    ALM_VALVE_DRIFT : BOOL;
-    ALM_REAL_LEAK : BOOL;
-    ALM_OUTGAS : BOOL;
-    ILK_GAS_BLOCK : BOOL;
-    ILK_VALVE_SAT : BOOL;
+    HMI_SP : INT AT %QW110;
+    HMI_MFC : INT AT %QW111;
+    HMI_MAN_VALVE : INT AT %QW112;
+    HMI_AUTO : BOOL AT %QX110.0;
+    HMI_RUN : BOOL AT %QX110.1;
+    HMI_ROR_REQ : BOOL AT %QX110.2;
+    HMI_ALM_RESET : BOOL AT %QX110.3;
+    MW_PV : INT AT %QW120;
+    MW_VALVE : INT AT %QW121;
+    MW_SEFF : INT AT %QW122;
+    MW_VDRIFT : INT AT %QW123;
+    MW_QLEAK : INT AT %QW124;
+    MW_Q1 : INT AT %QW125;
+    MW_RORSTATE : INT AT %QW126;
+    ALM_P_HIGH : BOOL AT %QX120.0;
+    ALM_P_LOW : BOOL AT %QX120.1;
+    ALM_VALVE_DRIFT : BOOL AT %QX120.2;
+    ALM_REAL_LEAK : BOOL AT %QX120.3;
+    ALM_OUTGAS : BOOL AT %QX120.4;
+    ILK_GAS_BLOCK : BOOL AT %QX120.5;
+    ILK_VALVE_SAT : BOOL AT %QX120.6;
+    initialized : BOOL := FALSE;
+    link_ok : BOOL;
+    startup_dly : TON;
     pv_mtorr : REAL;
     sp_mtorr : REAL;
     valve_deg : REAL;
@@ -53,6 +63,19 @@ PROGRAM main
     VALVE_DRIFT_PCT : REAL := 1.5;
     QLEAK_HI : REAL := 0.005;
   END_VAR
+
+(* 첫 스캔 초기화 — 위치 지정 변수는 선언부 초기값이 유실될 수 있으므로 본문에서 세운다 *)
+IF NOT initialized THEN
+    initialized := TRUE;
+    HMI_SP := 4000;
+    HMI_MFC := 10000;
+    HMI_MAN_VALVE := 2677;
+    HMI_AUTO := TRUE;
+    HMI_RUN := TRUE;
+END_IF;
+
+startup_dly(IN := TRUE, PT := T#3s);
+link_ok := startup_dly.Q AND (IW_PRESS > 0);
 
 pv_mtorr := INT_TO_REAL(IW_PRESS) / 100.0;
 valve_deg := INT_TO_REAL(IW_VALVE) / 100.0;
@@ -110,15 +133,15 @@ QW_SP := HMI_SP;
 QW_MFC := HMI_MFC;
 QW_VALVE_CMD := REAL_TO_INT(apc.CMD * 100.0);
 
-a_phi(TRIP := (pv_mtorr > sp_mtorr * (1.0 + SP_HI_PCT / 100.0)) AND HMI_RUN,
+a_phi(TRIP := (pv_mtorr > sp_mtorr * (1.0 + SP_HI_PCT / 100.0)) AND HMI_RUN AND link_ok,
       RESET := HMI_ALM_RESET,
       DELAY_N := 5);
 
-a_plo(TRIP := (pv_mtorr < sp_mtorr * (1.0 - SP_LO_PCT / 100.0)) AND HMI_RUN AND NOT IX_ROR_RUN,
+a_plo(TRIP := (pv_mtorr < sp_mtorr * (1.0 - SP_LO_PCT / 100.0)) AND HMI_RUN AND NOT IX_ROR_RUN AND link_ok,
       RESET := HMI_ALM_RESET,
       DELAY_N := 5);
 
-a_vdrift(TRIP := (valve_deg > VALVE_BASE * (1.0 + VALVE_DRIFT_PCT / 100.0)) AND HMI_RUN AND HMI_AUTO,
+a_vdrift(TRIP := (valve_deg > VALVE_BASE * (1.0 + VALVE_DRIFT_PCT / 100.0)) AND HMI_RUN AND HMI_AUTO AND link_ok,
          RESET := HMI_ALM_RESET,
          DELAY_N := 20);
 
@@ -135,5 +158,13 @@ ALM_P_LOW := a_plo.ALM;
 ALM_VALVE_DRIFT := a_vdrift.ALM;
 ALM_REAL_LEAK := a_leak.ALM;
 ALM_OUTGAS := a_og.ALM;
+
+MW_PV := IW_PRESS;
+MW_VALVE := IW_VALVE;
+MW_SEFF := IW_SEFF;
+MW_VDRIFT := REAL_TO_INT((valve_deg - VALVE_BASE) / VALVE_BASE * 10000.0);
+MW_QLEAK := IW_EST_QLEAK;
+MW_Q1 := IW_EST_Q1;
+MW_RORSTATE := ror_state;
 
 END_PROGRAM
