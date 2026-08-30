@@ -5,3 +5,7 @@ __pycache__/
 .DS_Store
 .pytest_cache/
 results/
+chamber_apc/build/
+chamber_apc/*.bak
+chamber_apc/devices/*.bak
+plc/v4/*.txt

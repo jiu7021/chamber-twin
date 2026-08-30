@@ -1,0 +1,7 @@
+{
+  "deviceBoard": "OpenPLC Runtime v4",
+  "communicationPort": "",
+  "runtimeIpAddress": "https://localhost:8444",
+  "vendorScreenData": {},
+  "selectedPlatformOptions": {}
+}
