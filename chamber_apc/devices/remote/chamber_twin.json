@@ -1,0 +1,208 @@
+{
+  "name": "chamber_twin",
+  "protocol": "modbus-tcp",
+  "modbusTcpConfig": {
+    "transport": "tcp",
+    "host": "host.docker.internal",
+    "port": 5020,
+    "timeout": 1000,
+    "slaveId": 1,
+    "ioGroups": [
+      {
+        "id": "g1",
+        "name": "proc",
+        "functionCode": "4",
+        "cycleTime": 100,
+        "offset": "0x0000",
+        "length": 6,
+        "errorHandling": "set-to-zero",
+        "ioPoints": [
+          {
+            "id": "proc_0",
+            "name": "proc_0",
+            "type": "Analog Input (Input Register)",
+            "iecLocation": "%IW100",
+            "alias": ""
+          },
+          {
+            "id": "proc_1",
+            "name": "proc_1",
+            "type": "Analog Input (Input Register)",
+            "iecLocation": "%IW101",
+            "alias": ""
+          },
+          {
+            "id": "proc_2",
+            "name": "proc_2",
+            "type": "Analog Input (Input Register)",
+            "iecLocation": "%IW102",
+            "alias": ""
+          },
+          {
+            "id": "proc_3",
+            "name": "proc_3",
+            "type": "Analog Input (Input Register)",
+            "iecLocation": "%IW103",
+            "alias": ""
+          },
+          {
+            "id": "proc_4",
+            "name": "proc_4",
+            "type": "Analog Input (Input Register)",
+            "iecLocation": "%IW104",
+            "alias": ""
+          },
+          {
+            "id": "proc_5",
+            "name": "proc_5",
+            "type": "Analog Input (Input Register)",
+            "iecLocation": "%IW105",
+            "alias": ""
+          }
+        ]
+      },
+      {
+        "id": "g2",
+        "name": "ror",
+        "functionCode": "4",
+        "cycleTime": 100,
+        "offset": "0x000B",
+        "length": 3,
+        "errorHandling": "set-to-zero",
+        "ioPoints": [
+          {
+            "id": "ror_0",
+            "name": "ror_0",
+            "type": "Analog Input (Input Register)",
+            "iecLocation": "%IW111",
+            "alias": ""
+          },
+          {
+            "id": "ror_1",
+            "name": "ror_1",
+            "type": "Analog Input (Input Register)",
+            "iecLocation": "%IW112",
+            "alias": ""
+          },
+          {
+            "id": "ror_2",
+            "name": "ror_2",
+            "type": "Analog Input (Input Register)",
+            "iecLocation": "%IW113",
+            "alias": ""
+          }
+        ]
+      },
+      {
+        "id": "g3",
+        "name": "stat",
+        "functionCode": "2",
+        "cycleTime": 100,
+        "offset": "0x0004",
+        "length": 2,
+        "errorHandling": "set-to-zero",
+        "ioPoints": [
+          {
+            "id": "stat_0",
+            "name": "stat_0",
+            "type": "Digital Input (Discrete Input)",
+            "iecLocation": "%IX100.4",
+            "alias": ""
+          },
+          {
+            "id": "stat_1",
+            "name": "stat_1",
+            "type": "Digital Input (Discrete Input)",
+            "iecLocation": "%IX100.5",
+            "alias": ""
+          }
+        ]
+      },
+      {
+        "id": "g4",
+        "name": "setpt",
+        "functionCode": "16",
+        "cycleTime": 100,
+        "offset": "0x0000",
+        "length": 3,
+        "errorHandling": "set-to-zero",
+        "ioPoints": [
+          {
+            "id": "setpt_0",
+            "name": "setpt_0",
+            "type": "Analog Output (Multiple Registers)",
+            "iecLocation": "%QW100",
+            "alias": ""
+          },
+          {
+            "id": "setpt_1",
+            "name": "setpt_1",
+            "type": "Analog Output (Multiple Registers)",
+            "iecLocation": "%QW101",
+            "alias": ""
+          },
+          {
+            "id": "setpt_2",
+            "name": "setpt_2",
+            "type": "Analog Output (Multiple Registers)",
+            "iecLocation": "%QW102",
+            "alias": ""
+          }
+        ]
+      },
+      {
+        "id": "g5",
+        "name": "cmd",
+        "functionCode": "15",
+        "cycleTime": 100,
+        "offset": "0x0000",
+        "length": 6,
+        "errorHandling": "set-to-zero",
+        "ioPoints": [
+          {
+            "id": "cmd_0",
+            "name": "cmd_0",
+            "type": "Digital Output (Multiple Coils)",
+            "iecLocation": "%QX100.0",
+            "alias": ""
+          },
+          {
+            "id": "cmd_1",
+            "name": "cmd_1",
+            "type": "Digital Output (Multiple Coils)",
+            "iecLocation": "%QX100.1",
+            "alias": ""
+          },
+          {
+            "id": "cmd_2",
+            "name": "cmd_2",
+            "type": "Digital Output (Multiple Coils)",
+            "iecLocation": "%QX100.2",
+            "alias": ""
+          },
+          {
+            "id": "cmd_3",
+            "name": "cmd_3",
+            "type": "Digital Output (Multiple Coils)",
+            "iecLocation": "%QX100.3",
+            "alias": ""
+          },
+          {
+            "id": "cmd_4",
+            "name": "cmd_4",
+            "type": "Digital Output (Multiple Coils)",
+            "iecLocation": "%QX100.4",
+            "alias": ""
+          },
+          {
+            "id": "cmd_5",
+            "name": "cmd_5",
+            "type": "Digital Output (Multiple Coils)",
+            "iecLocation": "%QX100.5",
+            "alias": ""
+          }
+        ]
+      }
+    ]
+  }
+}

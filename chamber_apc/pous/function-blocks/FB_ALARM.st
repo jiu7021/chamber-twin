@@ -1,19 +1,17 @@
 FUNCTION_BLOCK FB_ALARM
-VAR_INPUT
+  VAR_INPUT
     TRIP : BOOL;
     RESET : BOOL;
     DELAY_N : INT := 5;
-END_VAR
-
-VAR_OUTPUT
+  END_VAR
+  VAR_OUTPUT
     ALM : BOOL;
     ACTIVE : BOOL;
-END_VAR
-
-VAR
+  END_VAR
+  VAR
     cnt : INT := 0;
     rtrig : R_TRIG;
-END_VAR
+  END_VAR
 
 ACTIVE := TRIP;
 
