@@ -15,35 +15,40 @@
 
 ---
 
-## ⚠ 검증 현황 — 어디까지 실제로 돌려봤는가
-
-**이 저장소는 연동 인터페이스와 트윈 측을 구현·검증했다. OpenPLC 와 SCADA 를 실제로 붙여본 적은 없다.**
+## 검증 현황 — 어디까지 실제로 돌려봤는가
 
 | 항목 | 상태 | 근거 |
 |---|---|---|
-| Modbus TCP 슬레이브 (트윈) | **검증됨** | 서버를 띄우고 클라이언트로 읽기·쓰기·예외응답(fc 0x84 code 2)까지 확인 |
+| Modbus TCP 슬레이브 (트윈) | **검증됨** | 서버 구동 + 클라이언트로 읽기·쓰기·예외응답(fc 0x84 code 2) 확인 |
 | 레지스터 맵 ↔ 구현 일치 | **검증됨** | 압력·밸브각·S_eff·RoR 결과를 Modbus 로 읽어 값 대조 |
 | RoR 진단 (Modbus 경유) | **검증됨** | 4 시나리오에서 Q_leak 오차 +0.0 %, α 1.000/0.500 |
-| 제어 루프 안정성 | **모사로 검증됨** | `hil_check.py` 가 PLC 의 이산 PI + 통신 지연을 Python 으로 모사. **실제 OpenPLC 아님** |
-| ST 프로그램 문법 | **미검증** | 작성만 했고 **OpenPLC 컴파일러에 넣어본 적 없다.** 문법 오류가 있을 수 있다 |
-| OpenPLC 런타임 구동 | **미실행** | 설치·실행하지 않았다 |
+| OpenPLC Runtime v4 구동 | **검증됨** | Docker 컨테이너 `openplc-twin`, REST API 8444, 계정 생성·JWT 인증 통과 |
+| **런타임 → 트윈 실제 통신** | **검증됨** | 컨테이너 안에서 `host.docker.internal:5020` 으로 Modbus 왕복 성공.<br>누설 주입 시 압력 40.000 mTorr 고정, 밸브각 26.770 → 27.230° |
+| Modbus 마스터 설정 | **검증됨** | `modbus_master.json` 을 **런타임 자체 파서·검증기**로 통과 (I/O 18 포인트) |
+| 제어 루프 안정성 | **모사로 검증됨** | `hil_check.py` 가 이산 PI + 통신 지연을 Python 으로 모사. 실제 PLC 스캔 아님 |
+| ST 프로그램 컴파일 | **미검증** | v4 는 ST 를 직접 안 받는다. OpenPLC Editor 가 필요하다 (아래 §8) |
+| PLC 프로그램 실행 | **미실행** | 위 컴파일이 선행되어야 한다 |
 | SCADA/HMI 연결 | **미실행** | 아무 HMI 도 붙이지 않았다 |
-| 실제 2프로세스 Modbus 연동 | **미실행** | 트윈↔OpenPLC 가 실제로 통신한 적 없다 |
 
-**면접에서 이렇게 말할 것**: "챔버를 Modbus 슬레이브로 노출하는 것까지 만들어 검증했고,
-PLC 측 제어 로직은 작성한 뒤 지연을 포함한 폐루프를 시뮬레이션으로 검증했습니다.
-OpenPLC 실물 연동은 아직 안 했고, 그게 다음 단계입니다."
-
-남은 작업은 §8 에 정리했다.
+**면접에서 이렇게 말할 것**: "챔버를 Modbus 슬레이브로 노출하고, 실제 OpenPLC 런타임을 띄워
+**두 프로세스 간 Modbus 통신까지 검증**했습니다. PLC 프로그램 컴파일은 Editor 가 필요해 남아 있습니다."
 
 ---
 
-| 파일 | 역할 |
-|---|---|
-| `modbus_map.md` | **레지스터 맵 규약.** 다른 파일은 전부 이 문서의 구현이다 |
-| `modbus_tcp.py` | 최소 Modbus TCP 슬레이브·마스터 (외부 의존성 없음) |
-| `modbus_server.py` | 챔버 플랜트 + RoR 시퀀서 + 진단 추정기를 Modbus 로 노출 |
-| `openplc_apc.st` | OpenPLC 용 IEC 61131-3 Structured Text 제어 프로그램 |
+## ⚠ v3 와 v4 는 구조가 다르다 — 이 문서의 앞선 판은 v3 기준이었다
+
+| | OpenPLC v3 (클래식) | **OpenPLC v4 (autonomy-logic, 이 저장소가 쓰는 것)** |
+|---|---|---|
+| 웹 UI | HTTP 8080, 폼 기반 | **HTTPS 8443 REST API + JWT** (폼 UI 없음) |
+| 프로그램 업로드 | `.st` 파일 직접 업로드 → 서버가 matiec 으로 컴파일 | **Editor 가 로컬에서 ST→C 컴파일** 후 결과 ZIP 업로드 |
+| ST 컴파일러 | 서버의 `iec2c` (matiec) | Editor 에 번들된 `strucpp` (CLI 없음, GUI 전용) |
+| Modbus 마스터 설정 | 웹 UI 의 *Slave Devices* 폼 | **플러그인 JSON** (`modbus_master.json`) |
+| 슬레이브(SCADA용) 포트 | 502 | 502 |
+
+**따라서 §3-2 의 "Slave Devices 폼" 절차는 v3 전용이며 v4 에서는 쓰지 않는다.**
+v4 에서는 `plc/modbus_master.json` 을 프로그램 ZIP 의 `conf/` 에 넣어 올린다.
+
+---
 
 ---
 
@@ -277,18 +282,59 @@ PLC 는 압력이 아니라 **밸브 각도**를 보고 알람을 낸다. 압력
 
 ---
 
-## 8. 실물 연동을 완료하려면 (남은 작업)
+## 8. 남은 작업 — OpenPLC Editor 로 프로그램 올리기
 
-1. **OpenPLC Runtime 설치** — Linux(Debian/Ubuntu) 또는 Docker.
-   현재 개발 환경(macOS, Docker 미설치)에서는 바로 돌릴 수 없다.
-2. **ST 컴파일** — `openplc_apc.st` 를 OpenPLC Web UI 에 올려 Compile.
-   **아직 한 번도 컴파일하지 않았으므로 문법 오류를 먼저 잡아야 한다.**
-   특히 확인할 것: `LIMIT()` 인자 순서, `R_TRIG`/`TON` 인스턴스 선언,
-   located variable 주소(`%IW100` 등)가 Slave Device 설정과 맞는지.
-3. **Slave Device 등록** — §3-2 표대로. 폴링 200 ms (§3-3 상한).
-4. **폐루프 확인** — 트윈에 누설을 주입했을 때 PLC 가 밸브를 열어 압력을 잡는지,
-   `hil_check.py` 가 예측한 오버슈트 7.14 % 와 실제가 맞는지 대조.
-5. **SCADA 연결** — ScadaBR·FUXA 등 무료 Modbus HMI 를 포트 502 에 붙이고
-   §4 태그표로 화면 구성. 주 트렌드는 압력이 아니라 **밸브 각도**로 둘 것.
+여기까지는 전부 자동으로 검증했다. 남은 것은 **GUI 작업**이라 사람이 해야 한다.
 
-이 다섯 단계를 마치면 위 표의 "미검증/미실행" 네 줄이 "검증됨"으로 바뀐다.
+### 현재 떠 있는 것
+
+```bash
+# 트윈 (플랜트)
+python plc/modbus_server.py --port 5020 --local-apc
+
+# OpenPLC Runtime v4 (제어기)  — 기존 컨테이너와 충돌하지 않도록 포트를 분리했다
+docker run -d --name openplc-twin -p 8444:8443 -p 5502:502 \
+  --add-host=host.docker.internal:host-gateway \
+  ghcr.io/autonomy-logic/openplc-runtime:latest
+```
+
+계정: `twin` / `twin1234` (컨테이너를 새로 만들면 다시 등록해야 한다)
+
+```bash
+# 사용자 등록 (DB 가 비어 있을 때만 인증 없이 가능)
+curl -sk -X POST https://localhost:8444/api/create-user \
+  -H 'Content-Type: application/json' -d '{"username":"twin","password":"twin1234"}'
+
+# 로그인 → JWT
+curl -sk -X POST https://localhost:8444/api/login \
+  -H 'Content-Type: application/json' -d '{"username":"twin","password":"twin1234"}'
+
+# 상태 조회 (Bearer 토큰 필요)
+curl -sk https://localhost:8444/api/status -H "Authorization: Bearer $TOKEN"
+```
+
+### Editor 에서 할 일
+
+1. **OpenPLC Editor 4.2.7** 실행 (`/Applications/OpenPLC Editor.app`)
+2. 새 프로젝트 → POU 를 **Structured Text** 로 생성
+3. `plc/openplc_apc.st` 의 내용을 옮긴다. **주의**: v4 Editor 는 프로젝트 설정에서
+   `CONFIGURATION` / `RESOURCE` 를 자체 생성하므로, ST 파일 맨 아래의
+   `CONFIGURATION Config0 … END_CONFIGURATION` 블록은 **빼고** 넣는다.
+   located variable(`AT %IW100` 등)은 Editor 의 변수 테이블에서 위치를 지정한다.
+4. **Compile** — 여기서 문법 오류가 드러난다. 이게 아직 미검증인 유일한 부분이다.
+5. **Upload to Runtime** → 주소 `https://localhost:8444`, 계정 `twin` / `twin1234`
+6. Modbus 마스터 설정: `plc/modbus_master.json` 을 프로젝트의 `conf/` 에 포함시킨다
+   (런타임이 업로드된 ZIP 의 `conf/` 를 읽어 플러그인 설정을 갱신한다 —
+   `webserver/plcapp_management.py: update_plugin_configurations()`)
+7. **Start PLC** (`GET /api/start-plc`)
+
+### 확인 방법
+
+PLC 가 돌기 시작하면 트윈 로그에 밸브 지령(HR2) 쓰기가 들어온다.
+`hil_check.py` 가 예측한 오버슈트 7.14 % · 외란 정착 4.1 s 와 실제를 대조하면
+모사 검증이 실물로 확정된다.
+
+### SCADA 연결
+
+OpenPLC 내장 슬레이브(호스트 포트 **5502**)에 Modbus HMI(ScadaBR·FUXA 등)를 붙인다.
+태그는 §4 표를 쓰되, **주 트렌드는 압력이 아니라 밸브 각도로 둘 것.**
