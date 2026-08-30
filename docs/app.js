@@ -172,7 +172,9 @@ $('i-apc').addEventListener('change', (e) => {
   ch.apcOn = e.target.checked; markFault();
   $('apc-note').innerHTML = ch.apcOn
     ? '켜짐 — 밸브가 압력을 설정값에 붙든다. 고장은 압력이 아니라 <b>밸브 각도</b>에 나타난다.'
-    : '꺼짐 — 밸브가 고정된다. 이제 고장이 <b>압력</b>에 나타난다. 실측 장비는 이 상태가 아니었다.';
+    : '꺼짐 — 밸브가 <b>지금 각도에 그대로 고정</b>된다. 이제 고장이 <b>압력</b>에 나타난다.'
+      + '<br>이미 고장을 보상한 뒤에 끄면 압력이 안 움직인다. 기준 상태에서 끈 뒤 고장을 넣어야 '
+      + '대조가 보인다 — 아래 시나리오 2번이 그 순서다.';
 });
 
 const setSlider = (id, v) => { const el = $(id); el.value = v; el.dispatchEvent(new Event('input')); };
@@ -191,12 +193,19 @@ $('b-reset').addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------- 시나리오
+// 시나리오는 **반드시 기준 운전점에서 출발**해야 대조가 성립한다.
+// 이전 시나리오에서 밸브가 이미 고장을 보상한 각도에 있으면, APC 를 꺼도 그 각도에 얼어붙어
+// 압력이 움직이지 않는다 — 물리적으로는 맞지만 보여주려는 대조가 사라진다.
+const setApc = (on) => { $('i-apc').checked = on; $('i-apc').dispatchEvent(new Event('change')); };
+
 const scenarios = {
-  leak: () => { clearFaults(); $('i-apc').checked = true; ch.apcOn = true; setSlider('i-leak', 0.12); },
-  apcoff: () => { clearFaults(); setSlider('i-leak', 0.12); $('i-apc').checked = false;
-                  $('i-apc').dispatchEvent(new Event('change')); },
-  pump: () => { clearFaults(); $('i-apc').checked = true; ch.apcOn = true; setSlider('i-pump', 70); },
-  ror: () => { clearFaults(); setSlider('i-leak', 0.05); setSlider('i-og', 0.08); setSlider('i-al', 1.0);
+  // APC 켠 채로 누설 → 압력 불변, 밸브만 이동
+  leak: () => { clearFaults(); ch.softReset(); setApc(true); setSlider('i-leak', 0.12); },
+  // APC 를 **먼저** 끄고(밸브가 기준각에 고정됨) 누설 → 이번엔 압력이 오른다
+  apcoff: () => { clearFaults(); ch.softReset(); setApc(false); setSlider('i-leak', 0.12); },
+  pump: () => { clearFaults(); ch.softReset(); setApc(true); setSlider('i-pump', 70); },
+  ror: () => { clearFaults(); ch.softReset(); setApc(true);
+               setSlider('i-leak', 0.05); setSlider('i-og', 0.08); setSlider('i-al', 1.0);
                setTimeout(() => $('b-ror').click(), 400); },
 };
 document.querySelectorAll('.scen-card').forEach((card) => {

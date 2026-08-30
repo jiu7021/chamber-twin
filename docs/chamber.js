@@ -107,6 +107,17 @@ export class Chamber {
     this.reset();
   }
 
+  // 시간·이력은 유지한 채 압력과 밸브만 기준 운전점으로 되돌린다.
+  // 시나리오 비교에 쓴다 — 이전 시나리오의 밸브 위치가 남아 있으면 대조가 성립하지 않는다.
+  softReset() {
+    this.P = this.pSp;
+    const s0 = this.qMfc / this.pSp;
+    const th = seffToTheta(s0, this.sPump0, this.cMax0);
+    this.theta = isFinite(th) ? th : Math.PI / 4;
+    this.I = this.theta - this.kp * (this.P - this.pSp);
+    this.tOutgasStart = this.t;
+  }
+
   reset() {
     this.t = 0;
     this.P = this.pSp;

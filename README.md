@@ -36,7 +36,7 @@
 | 2 | 순번 효과 특성화 + **31채널 전수 음성 결과** | [phase2](reports/phase2_taskB.md) |
 | 2R | RF 정합망 분석 — 임피던스 역산, 가설 1개 기각 | [phase2R](reports/phase2R_rf.md) |
 | 3 | **물리 시뮬레이터** — 해석해 검증, 실측 대조, 고장 주입 | [phase3](reports/phase3_taskC.md) |
-| 4 | 인터랙티브 웹 시뮬레이터 + PLC/SCADA 연동 | [plc](plc/README.md) |
+| 4 | 인터랙티브 웹 시뮬레이터 + PLC/SCADA **연동 인터페이스** | [plc](plc/README.md) |
 
 **음성 결과를 그대로 실었다.** Phase 1 은 게이트 실패, Phase 2 는 "설명하는 변수 없음",
 Phase 2R 은 "역산해도 정보가 늘지 않음"이 결론이다. 이것이 Phase 3 시뮬레이터의 존재 이유다.
@@ -46,7 +46,8 @@ Phase 2R 은 "역산해도 정보가 늘지 않음"이 결론이다. 이것이 P
 ```
 docs/          인터랙티브 웹 시뮬레이터 (GitHub Pages, 정적)
 physics/       물리 엔진 — units · chamber · diagnostics · rfmatch · steps · fit · dataio
-plc/           OpenPLC · SCADA 연동 — Modbus 맵 · TCP 슬레이브 · ST 프로그램
+plc/           OpenPLC · SCADA 연동 인터페이스 — Modbus 맵 · TCP 슬레이브 · ST 프로그램
+               (트윈 측은 검증 완료, OpenPLC 실물 연동은 미실행 — plc/README.md 상단 참조)
 scripts/       Phase 0~3 분석 스크립트
 tests/         pytest 58 개
 reports/       Phase 별 보고서 + 그림
