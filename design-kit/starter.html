@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>프로젝트 이름</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="snowui-shell.css">
+</head>
+<body>
+<div class="shell">
+
+<aside class="rail">
+  <div class="rail-brand"><span class="rail-dot"></span><span>프로젝트 이름</span></div>
+
+  <div class="rail-sec">개요</div>
+  <nav class="rail-group">
+    <a class="rail-row" href="#s-summary"><span class="ri"></span>한눈에 보기</a>
+    <a class="rail-row" href="#s-problem"><span class="ri"></span>문제와 발견</a>
+  </nav>
+
+  <div class="rail-sec">과정</div>
+  <nav class="rail-group">
+    <a class="rail-row" href="#s-hunt"><span class="ri"></span>가설과 검증</a>
+    <a class="rail-row" href="#s-build"><span class="ri"></span>구현</a>
+    <a class="rail-row" href="#s-result"><span class="ri"></span>결과</a>
+    <a class="rail-row" href="#s-limit"><span class="ri"></span>한계</a>
+  </nav>
+
+  <nav class="rail-group rail-ext">
+    <a class="rail-row" href="https://github.com/…">저장소 ↗</a>
+    <a class="rail-row" href="https://doi.org/…">데이터 출처 ↗</a>
+  </nav>
+
+  <div class="rail-foot">SnowUI Design System</div>
+</aside>
+
+<div class="col">
+  <header class="topbar">
+    <div class="crumb"><span>포트폴리오</span><span class="sep">/</span><b id="crumb-cur">한눈에 보기</b></div>
+    <div class="topbar-r">
+      <span class="badge">상태 배지</span>
+      <button id="theme-btn" class="icon-btn" type="button" aria-label="테마 전환">◐</button>
+    </div>
+  </header>
+
+  <div class="scroll">
+    <div class="hero">
+      <h1>프로젝트 한 줄 제목</h1>
+      <p class="sub">무엇을 왜 만들었는지 두 문장으로.</p>
+    </div>
+
+    <main>
+      <section class="panel" id="s-summary">
+        <div class="panel-head"><h2>한눈에 보기</h2></div>
+        <div class="kpi-row">
+          <div class="kpi tint"><div class="kpi-lab">핵심 지표</div>
+            <div class="kpi-val">0.00 %</div><div class="kpi-sub">부연 설명</div></div>
+          <div class="kpi tint-2"><div class="kpi-lab">두 번째</div>
+            <div class="kpi-val">27.54°</div><div class="kpi-sub">부연 설명</div></div>
+          <div class="kpi"><div class="kpi-lab">세 번째</div>
+            <div class="kpi-val">96</div><div class="kpi-sub">부연 설명</div></div>
+        </div>
+      </section>
+
+      <section class="panel" id="s-problem">
+        <div class="panel-head"><h2>문제와 발견</h2><div class="hint">한 줄 요약</div></div>
+        <p class="para">본문.</p>
+        <img class="fig" src="img/…png" alt="">
+      </section>
+
+      <section class="panel" id="s-hunt">
+        <div class="panel-head"><h2>가설과 검증</h2></div>
+        <div class="steps">
+          <div class="step no"><span class="step-n">1</span><div>
+            <b>기각된 가설</b><p>왜 아니었는지.</p></div></div>
+          <div class="step half"><span class="step-n">2</span><div>
+            <b>부분 성공</b><p>어디까지 됐는지.</p></div></div>
+          <div class="step ok"><span class="step-n">3</span><div>
+            <b>성립한 가설</b><p>근거.</p></div></div>
+        </div>
+        <div class="turn" style="margin-top:20px">
+          <b>여기서 관점을 바꿨다.</b>
+          <p>전환의 이유.</p>
+          <table class="cmp">
+            <tr><th></th><th>이전</th><th>이후</th></tr>
+            <tr><td>항목</td><td>값</td><td><b>값</b></td></tr>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" id="s-build">
+        <div class="panel-head"><h2>구현</h2></div>
+        <p class="para">무엇을 어떻게 만들었는지.</p>
+      </section>
+
+      <section class="panel" id="s-result">
+        <div class="panel-head"><h2>결과</h2></div>
+        <table class="kv">
+          <tr><td>항목</td><td>결과</td></tr>
+        </table>
+      </section>
+
+      <section class="panel" id="s-limit">
+        <div class="panel-head"><h2>한계</h2><div class="hint">증명한 것과 못 한 것을 구분해 적는다</div></div>
+        <ol class="limits">
+          <li><b>못 한 것.</b> 왜 못 했는지, 하려면 무엇이 필요한지.</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="ftr">각주 · 출처</footer>
+  </div>
+</div>
+</div>
+
+<script src="snowui-shell.js"></script>
+</body>
+</html>

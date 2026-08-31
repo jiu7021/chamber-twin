@@ -1,0 +1,184 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SnowUI Shell — 포트폴리오 프로젝트용 재사용 스타일시트
+   토큰 출처: claude.ai/design 프로젝트 "SnowUI Design System"
+     tokens/colors.css · typography.css · shape.css · fonts.css
+     ui_kits/dashboard/{Shell,NavRail,OverviewScreen}.jsx (레이아웃 값)
+
+   원칙 — SnowUI 예시와 대조해 확정한 것
+     · 패널은 테두리로 나누지 않는다. 배경색 차이와 여백으로 나눈다.
+     · 간격 28 / 패딩 24 / 패널 radius 20 / 카드 radius 16.
+     · 다크가 기본. 밝은 테마는 [data-theme="light"] 로 전환.
+     · 다크에서도 KPI 카드는 파스텔 밝은 면을 유지하고 글자만 뒤집는다.
+     · Inter 에는 한글 글리프가 없으므로 Noto Sans KR 을 뒤에 둔다.
+
+   HTML 에 이 두 줄이 필요하다.
+     <html lang="ko" data-theme="dark">
+     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --ink:rgb(28,28,28); --ink-80:rgba(28,28,28,.8); --ink-40:rgba(28,28,28,.4);
+  --ink-20:rgba(28,28,28,.2); --ink-10:rgba(28,28,28,.1); --ink-05:rgba(28,28,28,.05);
+  --surface-page:rgb(255,255,255);
+  --surface-app:rgb(249,249,250);
+  --surface-panel:rgb(255,255,255);
+  --surface-sunken:rgb(247,249,251);
+  --surface-hover:rgba(0,0,0,.04);
+  --surface-selected:rgba(28,28,28,.05);
+  --line:rgba(0,0,0,.1);
+  --text-inverse:rgb(28,28,28);
+
+  --fill-blue:rgb(230,241,253); --fill-purple:rgb(237,238,252);
+  --fill-cyan:rgb(227,245,255); --fill-lilac:rgb(229,236,246);
+
+  --accent:rgb(0,122,255);
+  --warn:rgb(191,116,20); --warn-fill:rgb(255,244,229);
+  --bad:rgb(200,40,40);   --bad-fill:rgb(255,236,236);
+  --ok:rgb(35,150,72);    --ok-fill:rgb(233,248,238);
+
+  --radius-8:8px; --radius-16:16px; --radius-20:20px; --radius-full:999px;
+  --dur-fast:120ms; --dur-base:200ms; --ease:cubic-bezier(.4,0,.2,1);
+  --font-sans:'Inter','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+
+:root[data-theme="dark"]{
+  --ink:rgb(255,255,255); --ink-80:rgba(255,255,255,.8); --ink-40:rgba(255,255,255,.4);
+  --ink-20:rgba(255,255,255,.2); --ink-10:rgba(255,255,255,.1); --ink-05:rgba(255,255,255,.1);
+  --surface-page:rgb(51,51,51);
+  --surface-app:rgb(40,40,40);
+  --surface-panel:rgba(255,255,255,.04);
+  --surface-sunken:rgba(255,255,255,.04);
+  --surface-hover:rgba(255,255,255,.1);
+  --surface-selected:rgba(255,255,255,.1);
+  --line:rgba(255,255,255,.15);
+  --text-inverse:rgb(28,28,28);
+  /* SnowUI 는 다크에서도 이 파스텔 면들을 밝게 유지한다 */
+  --fill-lilac:rgb(231,235,245); --fill-purple:rgb(231,231,238);
+  --accent:rgb(10,132,255);
+  --warn:rgb(255,159,10); --warn-fill:rgba(255,159,10,.14);
+  --bad:rgb(255,69,58);   --bad-fill:rgba(255,69,58,.14);
+  --ok:rgb(48,209,88);    --ok-fill:rgba(48,209,88,.14);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--surface-app);color:var(--ink);font-family:var(--font-sans);
+  font-size:14px;line-height:20px;letter-spacing:0;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600}
+b{font-weight:600;color:var(--ink)}
+.tnum,.kpi-val,.kv,.cmp,.badge{font-variant-numeric:tabular-nums}
+
+/* ═══ 셸 ═══ */
+.shell{display:flex;height:100vh;overflow:hidden}
+.rail{width:232px;flex:none;border-right:1px solid var(--line);background:var(--surface-page);
+  padding:20px 16px;overflow-y:auto;display:flex;flex-direction:column}
+.rail-brand{display:flex;align-items:center;gap:9px;padding:4px 8px 0;font-weight:600}
+.rail-dot{width:16px;height:16px;border-radius:5px;background:var(--accent);flex:none}
+.rail-sec{font-size:14px;color:var(--ink-40);padding:4px 12px;margin-top:18px}
+.rail-group{display:flex;flex-direction:column}
+.rail-row{display:flex;align-items:center;gap:4px;height:32px;padding:0 8px;
+  border-radius:var(--radius-8);color:var(--ink);text-decoration:none;font-size:14px;
+  position:relative;transition:background var(--dur-fast) var(--ease)}
+.rail-row:hover{background:var(--surface-hover)}
+.rail-row.on{background:var(--surface-selected)}
+.rail-row.on::before{content:"";position:absolute;left:0;top:8px;width:4px;height:16px;
+  border-radius:2px;background:var(--ink)}
+.ri{width:6px;height:6px;border-radius:3px;background:var(--ink-20);margin:0 9px 0 5px;flex:none}
+.rail-row.on .ri{background:var(--ink)}
+.rail-ext{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.rail-ext .rail-row{color:var(--ink-40);padding-left:20px;font-size:12px}
+.rail-ext .rail-row:hover{color:var(--ink)}
+.rail-foot{margin-top:auto;padding-top:20px;font-size:12px;color:var(--ink-20);text-align:center}
+
+.col{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{height:56px;flex:none;border-bottom:1px solid var(--line);background:var(--surface-page);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;gap:14px}
+.crumb{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-40);min-width:0}
+.crumb b{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb .sep{color:var(--ink-20)}
+.topbar-r{display:flex;align-items:center;gap:10px;flex:none}
+.icon-btn{width:32px;height:32px;border-radius:var(--radius-8);border:1px solid var(--line);
+  background:transparent;color:var(--ink);cursor:pointer;font-size:14px;line-height:1;
+  transition:background var(--dur-fast) var(--ease)}
+.icon-btn:hover{background:var(--surface-hover)}
+
+.scroll{flex:1;overflow-y:auto;min-height:0}
+.hero{max-width:1280px;margin:0 auto;padding:28px 28px 0}
+.hero h1{font-size:24px;line-height:36px}
+.sub{margin:6px 0 0;color:var(--ink-40);max-width:760px;font-size:14px;line-height:20px}
+main{max-width:1280px;margin:0 auto;padding:20px 28px 48px;display:flex;flex-direction:column;gap:28px}
+.ftr{border-top:1px solid var(--line);padding:16px 28px;text-align:center;
+  color:var(--ink-20);font-size:12px}
+
+/* ═══ 콘텐츠 ═══ */
+.panel{background:var(--surface-panel);border:none;border-radius:var(--radius-20);padding:24px}
+.panel-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.panel h2{font-size:14px;line-height:20px}
+.hint{color:var(--ink-40);font-size:12px;line-height:18px}
+.dim{color:var(--ink-40)}
+.para{margin:0 0 14px;font-size:14px;line-height:24px;max-width:74ch}
+.para:last-child{margin-bottom:0}
+.para.dim{color:var(--ink-40)}
+.fig{display:block;width:100%;max-width:900px;height:auto;margin:8px 0 16px;
+  border-radius:var(--radius-16);background:var(--surface-sunken)}
+.inline-link{color:var(--accent);text-decoration:none;font-weight:600}
+.inline-link:hover{text-decoration:underline;text-underline-offset:3px}
+
+.badge{font-size:12px;line-height:18px;padding:3px 10px;border-radius:var(--radius-full);
+  background:var(--fill-blue);color:var(--text-inverse);border:1px solid transparent;
+  text-decoration:none;display:inline-block}
+.badge.ghost{background:var(--ink-05);color:var(--ink-40)}
+.badge.bad{background:var(--warn-fill);color:var(--warn)}
+
+.btn{font-family:inherit;font-size:12px;line-height:18px;padding:7px 14px;
+  border-radius:var(--radius-8);cursor:pointer;border:1px solid var(--line);
+  background:transparent;color:var(--ink);transition:background var(--dur-fast) var(--ease)}
+.btn:hover{background:var(--surface-hover)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--text-inverse)}
+
+/* KPI 카드 — 다크에서도 파스텔 면을 밝게 두고 글자만 뒤집는다 */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.kpi{background:var(--surface-sunken);border-radius:var(--radius-16);padding:20px;
+  display:flex;flex-direction:column;gap:6px;
+  transition:transform var(--dur-base) var(--ease)}
+.kpi:hover{transform:translateY(-2px)}
+.kpi.tint{background:var(--fill-blue);color:var(--text-inverse)}
+.kpi.tint-2{background:var(--fill-lilac);color:var(--text-inverse)}
+.kpi.tint .kpi-sub,.kpi.tint-2 .kpi-sub{color:rgba(28,28,28,.55)}
+.kpi-lab{font-size:14px;line-height:20px;font-weight:600}
+.kpi-val{font-size:24px;line-height:36px;font-weight:600}
+.kpi-sub{font-size:12px;line-height:18px;color:var(--ink-40)}
+
+/* 단계 목록 — ok / half / no 로 결과를 좌측 막대에 표시 */
+.steps{display:flex;flex-direction:column;gap:12px}
+.step{display:flex;gap:14px;background:var(--surface-sunken);border-radius:var(--radius-16);
+  padding:18px 20px;border-left:3px solid var(--ink-20)}
+.step.ok{border-left-color:var(--ok)}
+.step.half{border-left-color:var(--warn)}
+.step.no{border-left-color:var(--bad)}
+.step-n{flex:none;width:22px;height:22px;border-radius:var(--radius-full);
+  background:var(--ink-10);color:var(--ink);font-size:12px;font-weight:600;
+  display:grid;place-items:center}
+.step b{display:block;font-size:14px;line-height:20px;margin-bottom:4px}
+.step p{margin:0;font-size:13px;line-height:21px;color:var(--ink-40);max-width:70ch}
+
+/* 강조 블록 — 관점 전환·핵심 결론 */
+.turn{background:var(--fill-blue);color:var(--text-inverse);border-radius:var(--radius-16);padding:22px}
+.turn b{color:var(--text-inverse);font-size:14px}
+.turn p{margin:8px 0 14px;font-size:14px;line-height:24px;color:rgba(28,28,28,.75);max-width:74ch}
+
+.cmp,.kv{border-collapse:collapse;font-size:13px;line-height:20px}
+.cmp{background:rgba(255,255,255,.55);border-radius:var(--radius-8);overflow:hidden}
+.cmp th,.cmp td{padding:8px 14px;text-align:left;color:var(--text-inverse)}
+.cmp th{font-weight:600;color:rgba(28,28,28,.5);font-size:12px}
+.cmp tr + tr td{border-top:1px solid rgba(28,28,28,.08)}
+.kv{width:100%;max-width:760px;margin:4px 0 14px}
+.kv td{padding:9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.kv td:first-child{width:180px;color:var(--ink-40)}
+
+.limits{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:10px}
+.limits li{font-size:14px;line-height:22px;color:var(--ink-40);max-width:74ch}
+.limits li b{color:var(--ink)}
+
+@media (max-width:1100px){ .kpi-row{grid-template-columns:1fr} }
+@media (max-width:820px){ .rail{display:none} }
