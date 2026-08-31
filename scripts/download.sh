@@ -30,5 +30,25 @@ for f in "${SMALL_FILES[@]}"; do
   curl -fL --retry 3 -o "$dest" "${BASE_URL}/${f}?download=1"
 done
 
+# OES 스펙트럼 (Day_*.nc, 합계 약 7.9 GB). 기본으로는 받지 않는다.
+#   ./scripts/download.sh --oes   로 명시할 때만 받는다.
+if [ "${1:-}" = "--oes" ]; then
+  OES_FILES=(
+    "Dictionary_OES.nc"
+    "Day_2024_07_02.nc" "Day_2024_07_05.nc" "Day_2024_07_09.nc" "Day_2024_07_11.nc"
+    "Day_2024_07_19.nc" "Day_2024_08_01.nc" "Day_2024_08_05.nc" "Day_2024_08_07.nc"
+    "Day_2024_08_21.nc" "Day_2024_08_22.nc"
+  )
+  for f in "${OES_FILES[@]}"; do
+    dest="$DATA_DIR/$f"
+    if [ -f "$dest" ]; then
+      echo "이미 존재함, 건너뜀: $f"
+      continue
+    fi
+    echo "다운로드(OES): $f"
+    curl -fL --retry 3 -o "$dest" "${BASE_URL}/${f}?download=1"
+  done
+fi
+
 echo "완료. data/ 디렉토리 확인:"
 ls -la "$DATA_DIR"
