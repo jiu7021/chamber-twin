@@ -19,23 +19,28 @@
     <span>챔버 진공 트윈</span>
   </div>
 
-  <div class="rail-sec">모니터</div>
+  <div class="rail-sec">시뮬레이터</div>
   <nav class="rail-group">
     <a class="rail-row" href="#s-overview"><span class="ri"></span>개요 · 계통도</a>
     <a class="rail-row" href="#s-trend"><span class="ri"></span>실시간 응답</a>
-  </nav>
-
-  <div class="rail-sec">조작</div>
-  <nav class="rail-group">
     <a class="rail-row" href="#s-control"><span class="ri"></span>제어 · 고장 주입</a>
     <a class="rail-row" href="#s-scenario"><span class="ri"></span>시나리오</a>
+    <a class="rail-row" href="#s-verify"><span class="ri"></span>엔진 검증</a>
   </nav>
 
-  <div class="rail-sec">근거</div>
+  <div class="rail-sec">프로젝트</div>
   <nav class="rail-group">
-    <a class="rail-row" href="#s-verify"><span class="ri"></span>엔진 검증</a>
-    <a class="rail-row" href="https://github.com/jiu7021/etch-chamber-vacuum-twin"><span class="ri"></span>저장소 ↗</a>
-    <a class="rail-row" href="https://doi.org/10.5281/zenodo.17122442"><span class="ri"></span>데이터 출처 ↗</a>
+    <a class="rail-row" href="project.html#p-problem"><span class="ri"></span>문제와 발견</a>
+    <a class="rail-row" href="project.html#p-hunt"><span class="ri"></span>가설과 기각</a>
+    <a class="rail-row" href="project.html#p-twin"><span class="ri"></span>디지털 트윈</a>
+    <a class="rail-row" href="project.html#p-plc"><span class="ri"></span>PLC · SCADA</a>
+    <a class="rail-row" href="project.html#p-oes"><span class="ri"></span>OES 분석</a>
+    <a class="rail-row" href="project.html#p-limit"><span class="ri"></span>한계</a>
+  </nav>
+
+  <nav class="rail-group rail-ext">
+    <a class="rail-row" href="https://github.com/jiu7021/etch-chamber-vacuum-twin">저장소 ↗</a>
+    <a class="rail-row" href="https://doi.org/10.5281/zenodo.17122442">데이터 출처 ↗</a>
   </nav>
 
   <div class="rail-foot">SnowUI Design System</div>
@@ -140,9 +145,21 @@
       <div class="hint">고장을 넣어도 <b>압력은 거의 움직이지 않고</b> 밸브 각도만 움직인다 — 이것이 이 프로젝트의 핵심 발견이다.</div>
     </div>
     <div class="charts">
-      <div class="chart-wrap"><canvas id="c-press"></canvas><span class="c-lab">챔버 압력 [mTorr]</span></div>
-      <div class="chart-wrap"><canvas id="c-theta"></canvas><span class="c-lab accent">밸브 각도 [deg]</span></div>
-      <div class="chart-wrap"><canvas id="c-seff"></canvas><span class="c-lab">유효 배기속도 [L/s]</span></div>
+      <div class="chart-wrap">
+        <div class="c-head"><span class="c-lab">챔버 압력</span><span class="c-now" id="n-press">—</span></div>
+        <canvas id="c-press"></canvas>
+        <div class="c-foot">mTorr</div>
+      </div>
+      <div class="chart-wrap">
+        <div class="c-head"><span class="c-lab accent">밸브 각도</span><span class="c-now accent" id="n-theta">—</span></div>
+        <canvas id="c-theta"></canvas>
+        <div class="c-foot">deg</div>
+      </div>
+      <div class="chart-wrap">
+        <div class="c-head"><span class="c-lab">유효 배기속도</span><span class="c-now" id="n-seff">—</span></div>
+        <canvas id="c-seff"></canvas>
+        <div class="c-foot">L/s</div>
+      </div>
     </div>
   </section>
 

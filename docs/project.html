@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>프로젝트 — 식각 챔버 진공 디지털 트윈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell">
+
+<aside class="rail">
+  <div class="rail-brand">
+    <span class="rail-dot"></span>
+    <span>챔버 진공 트윈</span>
+  </div>
+
+  <div class="rail-sec">시뮬레이터</div>
+  <nav class="rail-group">
+    <a class="rail-row" href="index.html#s-overview"><span class="ri"></span>개요 · 계통도</a>
+    <a class="rail-row" href="index.html#s-trend"><span class="ri"></span>실시간 응답</a>
+    <a class="rail-row" href="index.html#s-control"><span class="ri"></span>제어 · 고장 주입</a>
+    <a class="rail-row" href="index.html#s-scenario"><span class="ri"></span>시나리오</a>
+    <a class="rail-row" href="index.html#s-verify"><span class="ri"></span>엔진 검증</a>
+  </nav>
+
+  <div class="rail-sec">프로젝트</div>
+  <nav class="rail-group">
+    <a class="rail-row" href="#p-problem"><span class="ri"></span>문제와 발견</a>
+    <a class="rail-row" href="#p-hunt"><span class="ri"></span>가설과 기각</a>
+    <a class="rail-row" href="#p-twin"><span class="ri"></span>디지털 트윈</a>
+    <a class="rail-row" href="#p-plc"><span class="ri"></span>PLC · SCADA</a>
+    <a class="rail-row" href="#p-oes"><span class="ri"></span>OES 분석</a>
+    <a class="rail-row" href="#p-limit"><span class="ri"></span>한계</a>
+  </nav>
+
+  <nav class="rail-group rail-ext">
+    <a class="rail-row" href="https://github.com/jiu7021/etch-chamber-vacuum-twin">저장소 ↗</a>
+    <a class="rail-row" href="https://doi.org/10.5281/zenodo.17122442">데이터 출처 ↗</a>
+  </nav>
+
+  <div class="rail-foot">SnowUI Design System</div>
+</aside>
+
+<div class="col">
+  <header class="topbar">
+    <div class="crumb"><span>진공 진단</span><span class="sep">/</span><b id="crumb-cur">문제와 발견</b></div>
+    <div class="topbar-r">
+      <a class="badge" href="index.html">시뮬레이터 열기 →</a>
+      <button id="theme-btn" class="icon-btn" type="button" aria-label="테마 전환">◐</button>
+    </div>
+  </header>
+
+  <div class="scroll">
+
+  <div class="hero">
+    <h1>이 프로젝트가 걸어온 길</h1>
+    <p class="sub">공개 실측 데이터에서 문제를 찾고, 가설을 세우고, 기각하고, 다시 세운 과정이다.
+       숫자보다 <b>왜 그렇게 판단했는지</b>를 남긴다.</p>
+  </div>
+
+  <main>
+
+  <section class="panel" id="p-problem">
+    <div class="panel-head"><h2>1 · 문제와 발견</h2>
+      <div class="hint">반도체 식각 장비는 쓸수록 챔버가 오염되어 덜 깎인다. 언제 청소해야 하는지 미리 알 수 있을까.</div></div>
+    <p class="para">공개 실측 데이터(웨이퍼 96장, 두 달)를 보다가 규칙적인 패턴을 발견했다.
+      한 로트(10장) 안에서 뒤로 갈수록 식각 깊이가 얕아지고, 다음 로트가 시작되면 원래대로 돌아온다.
+      <b>10장에 2.72 % 얕아지며</b>, 우연으로 보기 어려운 수준이었다.</p>
+    <img class="fig" src="img/etch_depth_sawtooth.png" alt="로트별 식각깊이 톱니">
+    <p class="para dim">이 데이터는 원래 세정 횟수의 영향을 보려고 공개된 것인데, 원 저자들은
+      “세정 조건 자체의 영향에 대해서는 뚜렷한 추세를 확립하지 못했다”고 적었다.
+      나는 같은 데이터에 <b>“한 로트 안에서 장수가 쌓이면 어떻게 되는가”</b>라는 다른 질문을 던졌다.</p>
+  </section>
+
+  <section class="panel" id="p-hunt">
+    <div class="panel-head"><h2>2 · 가설과 기각</h2>
+      <div class="hint">네 번 세우고 세 번 기각했다.</div></div>
+    <div class="steps">
+      <div class="step no"><span class="step-n">1</span><div>
+        <b>오염이 쌓이면 압력이 변할 것이다</b>
+        <p>배기가 막히면 압력이 오를 것이라 보았다. 확인해보니 압력은 변동계수 0.03 %로 사실상 상수였다.
+           <b>자동압력제어(APC)</b>가 붙들고 있었다.</p></div></div>
+      <div class="step no"><span class="step-n">2</span><div>
+        <b>그럼 배기 속도를 보자</b>
+        <p>배기 속도는 가스량 ÷ 압력이다. 가스량은 레시피가 정하고 압력은 상수였다.
+           분자도 분모도 안 변하니 그 몫에도 정보가 없었다.</p></div></div>
+      <div class="step half"><span class="step-n">3</span><div>
+        <b>배기구 하류(포어라인)를 보자</b>
+        <p>로트마다 리셋되는 톱니를 찾았다. 배기계에 뭔가 쌓였다 없어진다는 것과 부합했지만,
+           식각 깊이가 얕아지는 것은 설명하지 못했다.</p></div></div>
+      <div class="step no"><span class="step-n">4</span><div>
+        <b>기록된 31개 채널 전수 조사</b>
+        <p>다중비교 보정과 함께 전부 조사했다. <b>설명하는 채널은 하나도 없었다.</b></p></div></div>
+    </div>
+    <div class="turn">
+      <b>여기서 관점을 뒤집었다.</b>
+      <p>압력이 일정한 것은 정보가 없어서가 아니라, 제어기가 계속 보정하고 있기 때문이다.
+         크루즈 컨트롤을 켜고 오르막을 오르면 속도계는 그대로지만 액셀은 더 밟힌다.
+         그렇다면 정보는 제어 결과(압력)가 아니라 <b>제어 수단(배기 밸브 각도)</b>에 남아 있어야 한다.
+         그런데 그 값은 데이터에 기록돼 있지 않았다.</p>
+      <table class="cmp">
+        <tr><th></th><th>평지</th><th>오르막</th></tr>
+        <tr><td>속도계 <span class="dim">(= 챔버 압력)</span></td><td>100 km/h</td><td><b>100 km/h</b></td></tr>
+        <tr><td>액셀 개도 <span class="dim">(= 밸브 각도)</span></td><td>20 %</td><td><b>35 %</b></td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="p-twin">
+    <div class="panel-head"><h2>3 · 디지털 트윈</h2>
+      <div class="hint">기록되지 않은 값을 물리식으로 복원한다.</div></div>
+    <p class="para">진공 배기 방정식으로 챔버를 재현하고, 압력과 가스량으로부터 밸브 각도를 역산하는
+      시뮬레이터를 만들었다. 실측 압력 재현 오차가
+      <b>고정 배기속도 모델 34.8 % → APC 모델 8.2 %</b>로 줄었고, 96장 전부에서 APC 모델이 우세했다.
+      즉 <b>실제 장비에 APC가 걸려 있다는 것이 데이터로 확인</b>되었다.</p>
+    <p class="para"><a class="inline-link" href="index.html">시뮬레이터에서 직접 확인하기 →</a></p>
+  </section>
+
+  <section class="panel" id="p-plc">
+    <div class="panel-head"><h2>4 · PLC · SCADA 연동</h2>
+      <div class="hint">시뮬레이터 안에서만 맞는 것은 자기 채점이다.</div></div>
+    <p class="para">제어 로직을 IEC 61131-3 구조화 텍스트(ST)로 다시 작성해 실제 PLC 런타임에 올리고,
+      물리 모델과는 완전히 분리된 별도 프로세스로 통신(Modbus TCP)만으로 연결했다.</p>
+    <img class="fig" src="img/scada_demo.gif" alt="SCADA 실시간 제어 시연">
+    <p class="para dim">설정값을 40 → 30 mTorr로 바꾸자 밸브가 열리며 압력이 따라 내려가고,
+      밸브각 편차 알람이 점등된다. 실제 PLC가 제어하는 화면이다.</p>
+    <img class="fig" src="img/hil_leak_response.png" alt="실제 PLC 폐루프 누설 응답">
+    <table class="kv">
+      <tr><td>압력</td><td>40.00 mTorr로 <b>완전 복귀</b> (잔류편차 0.000 %)</td></tr>
+      <tr><td>밸브 각도</td><td>26.77° → <b>27.54°로 이동한 채 남음</b> (+2.89 %)</td></tr>
+      <tr><td>손으로 푼 해석해</td><td><b>27.5411°</b> — 실측과 오차 <b>0.00 %</b></td></tr>
+      <tr><td>정정 시간</td><td>4.07초 (사전 예측 4.1초)</td></tr>
+    </table>
+    <p class="para"><b>압력만 보면 아무 일도 없었다. 고장은 밸브 각도에만 남았다.</b></p>
+  </section>
+
+  <section class="panel" id="p-oes">
+    <div class="panel-head"><h2>5 · OES 분석</h2>
+      <div class="hint">밸브 각도는 “배기계가 나빠지고 있다”를 보여주지만, “왜 식각이 얕아지는가”는 답하지 못한다.</div></div>
+    <p class="para">범위 밖으로 두었던 광학 발광 분광 데이터 7.9 GB를 열었다.
+      실리콘을 깎는 물질인 <b>원자 불소(F)의 발광이 로트 안에서 10장당 6~12 % 어두워지고,
+      로트가 바뀌면 회복</b>되었다.</p>
+    <img class="fig" src="img/oes_sequence_slope.png" alt="OES 파장별 순번 기울기">
+    <p class="para">웨이퍼 순번을 통계적으로 통제하고도 상관이 남아(r = 0.42),
+      <b>장수를 세는 대신 실시간으로 측정 가능한 지표</b>가 될 수 있음을 확인했다.
+      다만 식각 깊이 변화의 42 %만 설명하고 나머지는 밝히지 못했다.</p>
+  </section>
+
+  <section class="panel" id="p-limit">
+    <div class="panel-head"><h2>6 · 한계</h2>
+      <div class="hint">증명한 것과 증명하지 못한 것을 구분해 적는다.</div></div>
+    <ol class="limits">
+      <li><b>밸브 각도를 실측으로 검증하지 못했다.</b> 데이터에 없어서 물리식으로 역산했고,
+        트윈과 실제 PLC 안에서만 확인했다.</li>
+      <li><b>“밸브각이 임계를 넘으면 식각이 얕아진다”는 증명되지 않았다.</b> 물리 기반 가설이며,
+        검증하려면 밸브각 로그와 식각 깊이가 함께 기록된 데이터가 필요하다.</li>
+      <li><b>OES로도 42 %만 설명된다.</b> 기준 발광선이 없어 밝기를 농도로 환산할 수도 없다.</li>
+      <li><b>청소 효과와 웜업을 분리하지 못했다.</b> 로트 경계가 날짜 경계와 겹친다.</li>
+      <li><b>PLC 장시간 안정성 미검증.</b> 약 71분 후 런타임 워치독이 걸려 멈춘 사례가 있다.</li>
+    </ol>
+    <p class="para dim">음성 결과를 그대로 실었다. 첫 접근은 검증 게이트 실패였고,
+      전수 조사 결론은 “설명하는 변수 없음”이었다. 그 실패가 이후 작업의 이유다.</p>
+  </section>
+
+  </main>
+
+  <footer class="ftr">
+    단위는 SI 단일계로 계산하고 표시 경계에서만 환산한다 ·
+    시험대 파라미터는 시뮬레이터 설정값이며 실제 장비 스펙이 아니다
+  </footer>
+
+  </div>
+</div>
+</div>
+
+<script src="ui.js"></script>
+</body>
+</html>

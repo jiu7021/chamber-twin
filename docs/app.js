@@ -58,14 +58,15 @@ class Trace {
     // 축 라벨
     cx.fillStyle = cv('--c-axis'); cx.font = '10px Inter, sans-serif';
     cx.fillText(this.fmt(hi), 4, 10); cx.fillText(this.fmt(lo), 4, h - 5);
-    cx.textAlign = 'right'; cx.fillText(this.fmt(this.pts[this.pts.length - 1][1]), w - 4, 10);
-    cx.textAlign = 'left';
+    // 현재값은 캔버스가 아니라 헤더 요소에 쓴다 — 라벨과 겹치지 않게
+    if (this.nowEl) this.nowEl.textContent = this.fmt(this.pts[this.pts.length - 1][1]);
   }
 }
 
 const trPress = new Trace($('c-press'), '--c-press', (v) => v.toFixed(2));
 const trTheta = new Trace($('c-theta'), '--c-theta', (v) => v.toFixed(2));
 const trSeff = new Trace($('c-seff'), '--c-seff', (v) => v.toFixed(1));
+trPress.nowEl = $('n-press'); trTheta.nowEl = $('n-theta'); trSeff.nowEl = $('n-seff');
 const faultMarks = [];
 
 // ---------------------------------------------------------------- 도식 애니메이션
