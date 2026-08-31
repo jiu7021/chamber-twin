@@ -26,6 +26,7 @@ DEVICE = "chamber_plc"
 UNIT = 1
 FOLDER = "Chamber"
 OPC_SERVER = "Ignition OPC UA Server"
+HISTORY_PROVIDER = "NewConnection"   # 기존 MariaDB 히스토리 프로바이더
 
 
 def opc(addr: str) -> str:
@@ -65,16 +66,23 @@ ALARM_TAGS = [
     ("ILK_VALVE_SAT",   "C966", None,       "인터록 — 밸브 포화"),
 ]
 
-# 엔지니어링 단위 환산 — 표현식 태그. 배율 근거는 plc/scada_map.md 의 배율 열.
-EXPR_TAGS = [
-    ("Pressure_mTorr", "{[.]PRESSURE_RAW} / 100.0", "챔버 압력 [mTorr]"),
-    ("Valve_deg",      "{[.]VALVE_RAW} / 100.0",    "밸브 각도 [deg]"),
-    ("Seff_Lps",       "{[.]SEFF_RAW} / 10.0",      "유효 배기속도 [L/s]"),
-    ("ValveDrift_pct", "{[.]VDRIFT_RAW} / 100.0",   "밸브각 편차 [%] — 주 진단 지표"),
-    ("Setpoint_mTorr", "{[.]SP_RAW} / 100.0",       "압력 설정값 [mTorr]"),
-    # -1 은 '미측정' 마커이므로 그대로 노출하지 않고 NaN 대신 -1 을 유지한다.
-    ("Qleak_Pam3s",    "{[.]QLEAK_RAW} / 1000000.0", "RoR 추정 실누설 [Pa*m3/s], 음수 = 미측정"),
+# 엔지니어링 단위 — 스케일링 OPC 태그.
+# Ignition 의 Linear 스케일링은 쓰기 시 역변환도 적용하므로, 설정값을 4000 이 아니라
+# 40.00 으로 입력할 수 있다. 배율 근거는 plc/scada_map.md 의 배율 열.
+# (이름, 주소, raw 하한, raw 상한, scaled 하한, scaled 상한, 히스토리, 설명)
+SCALED_TAGS = [
+    ("Pressure_mTorr",  "HR120",      0, 10000,    0.0,  100.0, True,  "챔버 압력 [mTorr]"),
+    ("Valve_deg",       "HR121",      0,  9000,    0.0,   90.0, True,  "밸브 각도 [deg]"),
+    ("Seff_Lps",        "HR122",      0, 10000,    0.0, 1000.0, False, "유효 배기속도 [L/s]"),
+    ("ValveDrift_pct",  "HR123", -10000, 10000, -100.0,  100.0, True,  "밸브각 편차 [%] — 주 진단 지표"),
+    ("Setpoint_mTorr",  "HR110",      0, 10000,    0.0,  100.0, False, "압력 설정값 [mTorr] — 쓰기 가능"),
 ]
+
+# 표현식 태그 — -1 이 '미측정' 마커라 선형 스케일링이 부적절한 것만 남긴다.
+EXPR_TAGS = [
+    ("Qleak_Pam3s", "{[.]QLEAK_RAW} / 1000000.0", "RoR 추정 실누설 [Pa*m3/s], 음수 = 미측정"),
+]
+
 
 
 def build_rows() -> list[tuple]:
@@ -104,6 +112,19 @@ def build_rows() -> list[tuple]:
             cfg["alarms"] = [{"name": name, "setpointA": 1.0, "priority": prio}]
         add(name, cfg)
 
+    for name, addr, rl, rh, sl, sh, hist, doc in SCALED_TAGS:
+        cfg = {
+            "name": name, "tagType": "AtomicTag", "valueSource": "opc",
+            "dataType": "Float8", "opcServer": OPC_SERVER, "opcItemPath": opc(addr),
+            "scaleMode": "Linear", "rawLow": rl, "rawHigh": rh,
+            "scaledLow": sl, "scaledHigh": sh, "clampMode": "None",
+            "documentation": doc,
+        }
+        if hist:
+            cfg["historyEnabled"] = True
+            cfg["historyProvider"] = HISTORY_PROVIDER
+        add(name, cfg)
+
     for name, expr, doc in EXPR_TAGS:
         add(name, {
             "name": name, "tagType": "AtomicTag", "valueSource": "expr",
@@ -117,6 +138,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--idb", required=True, help="config.idb 경로")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--replace", action="store_true", help="기존 Chamber 폴더를 지우고 다시 만든다")
     args = ap.parse_args()
 
     rows = build_rows()
@@ -125,12 +147,19 @@ def main() -> None:
 
     # 루트에 같은 이름이 있어도 무방하다. 겹치면 안 되는 것은 Chamber 폴더 자체와
     # 그 안의 태그들이므로, 루트 폴더 이름만 검사한다.
-    root_names = {r[0] for r in cur.execute(
-        "select NAME from TAGCONFIG where PROVIDERID=0 and FOLDERID is null")}
-    if FOLDER in root_names:
-        print(f"'{FOLDER}' 폴더가 이미 있다 — 먼저 지우고 실행할 것")
-        con.close()
-        raise SystemExit(1)
+    old = list(cur.execute(
+        "select ID from TAGCONFIG where PROVIDERID=0 and FOLDERID is null and NAME=?", (FOLDER,)))
+    if old:
+        if not args.replace:
+            print(f"'{FOLDER}' 폴더가 이미 있다 — --replace 를 주거나 먼저 지울 것")
+            con.close()
+            raise SystemExit(1)
+        fid = old[0][0]
+        n = cur.execute("select count(*) from TAGCONFIG where FOLDERID=?", (fid,)).fetchone()[0]
+        if not args.dry_run:
+            cur.execute("delete from TAGCONFIG where FOLDERID=?", (fid,))
+            cur.execute("delete from TAGCONFIG where ID=?", (fid,))
+        print(f"기존 '{FOLDER}' 폴더와 태그 {n}개 삭제")
 
     print(f"삽입 대상 {len(rows)}행 (폴더 1 + 태그 {len(rows)-1})")
     for r in rows:
