@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,23 +11,55 @@
 </head>
 <body>
 
-<header class="hdr">
-  <div class="hdr-in">
+<div class="shell">
+
+<aside class="rail">
+  <div class="rail-brand">
+    <span class="rail-dot"></span>
+    <span>챔버 진공 트윈</span>
+  </div>
+
+  <div class="rail-sec">모니터</div>
+  <nav class="rail-group">
+    <a class="rail-row" href="#s-overview"><span class="ri"></span>개요 · 계통도</a>
+    <a class="rail-row" href="#s-trend"><span class="ri"></span>실시간 응답</a>
+  </nav>
+
+  <div class="rail-sec">조작</div>
+  <nav class="rail-group">
+    <a class="rail-row" href="#s-control"><span class="ri"></span>제어 · 고장 주입</a>
+    <a class="rail-row" href="#s-scenario"><span class="ri"></span>시나리오</a>
+  </nav>
+
+  <div class="rail-sec">근거</div>
+  <nav class="rail-group">
+    <a class="rail-row" href="#s-verify"><span class="ri"></span>엔진 검증</a>
+    <a class="rail-row" href="https://github.com/jiu7021/etch-chamber-vacuum-twin"><span class="ri"></span>저장소 ↗</a>
+    <a class="rail-row" href="https://doi.org/10.5281/zenodo.17122442"><span class="ri"></span>데이터 출처 ↗</a>
+  </nav>
+
+  <div class="rail-foot">SnowUI Design System</div>
+</aside>
+
+<div class="col">
+  <header class="topbar">
+    <div class="crumb"><span>진공 진단</span><span class="sep">/</span><b id="crumb-cur">개요</b></div>
+    <div class="topbar-r">
+      <span id="selftest-badge" class="badge">엔진 검증 중…</span>
+      <button id="theme-btn" class="icon-btn" type="button" aria-label="테마 전환">◐</button>
+    </div>
+  </header>
+
+  <div class="scroll">
+  <div class="hero">
     <h1>식각 챔버 진공 디지털 트윈</h1>
     <p class="sub">챔버 압력은 자동제어(APC)로 고정되어 고장을 보여주지 않는다.
        정보는 <b>스로틀 밸브 각도</b>에 있고, 그 채널은 실측 데이터에 없다.
        그래서 물리 모델로 복원한다.</p>
-    <div class="hdr-meta">
-      <span id="selftest-badge" class="badge">엔진 검증 중…</span>
-      <span class="badge ghost">실측 96 웨이퍼 · Zenodo 10.5281/zenodo.17122442</span>
-      <a class="badge ghost link" href="https://github.com/jiu7021/etch-chamber-vacuum-twin">저장소</a>
-    </div>
   </div>
-</header>
-
 <main>
   <!-- ─────────────── 상단: 챔버 도식 + 계기 ─────────────── -->
-  <section class="panel grid-top">
+  <section class="panel grid-top" id="s-overview">
     <div class="schematic">
       <svg id="chamber-svg" viewBox="0 0 460 300" role="img" aria-label="챔버 배기계 도식">
         <!-- 가스 유입 -->
@@ -102,7 +134,7 @@
   </section>
 
   <!-- ─────────────── 차트 ─────────────── -->
-  <section class="panel">
+  <section class="panel" id="s-trend">
     <div class="panel-head">
       <h2>실시간 응답</h2>
       <div class="hint">고장을 넣어도 <b>압력은 거의 움직이지 않고</b> 밸브 각도만 움직인다 — 이것이 이 프로젝트의 핵심 발견이다.</div>
@@ -115,7 +147,7 @@
   </section>
 
   <!-- ─────────────── 제어 ─────────────── -->
-  <section class="panel grid-ctl">
+  <section class="panel grid-ctl" id="s-control">
     <div class="ctl-col">
       <h2>공정 조건</h2>
       <label class="sld">가스 유량 Q<sub>MFC</sub> <output id="o-q">1.000</output> Pa·m³/s
@@ -171,7 +203,7 @@
   </section>
 
   <!-- ─────────────── 시나리오 ─────────────── -->
-  <section class="panel">
+  <section class="panel" id="s-scenario">
     <div class="panel-head"><h2>시나리오 — 클릭해서 직접 확인</h2></div>
     <div class="scen">
       <button class="scen-card" data-scen="leak">
@@ -190,7 +222,7 @@
   </section>
 
   <!-- ─────────────── 검증 ─────────────── -->
-  <section class="panel">
+  <section class="panel" id="s-verify">
     <div class="panel-head">
       <h2>엔진 검증</h2>
       <div class="hint">브라우저 엔진을 해석해에 대조한 결과다. Python 판은 pytest 39개를 통과했다.</div>
@@ -208,7 +240,11 @@
 <footer class="ftr">
   단위는 SI 단일계로 계산하고 표시 경계에서만 환산한다 · 시험대 파라미터는 시뮬레이터 설정값이며 실제 장비 스펙이 아니다
 </footer>
+  </div>
+</div>
+</div>
 
+<script src="ui.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>
