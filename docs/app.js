@@ -37,7 +37,7 @@ class Trace {
     const X = (t) => ((t - t0) / HIST_S) * w;
     const Y = (v) => h - 22 - ((v - lo) / (hi - lo)) * (h - 34);
     // 격자
-    cx.strokeStyle = '#222b36'; cx.lineWidth = 1;
+    cx.strokeStyle = 'rgba(0,0,0,.10)'; cx.lineWidth = 1;
     for (let i = 0; i <= 3; i++) {
       const y = 12 + (i / 3) * (h - 34);
       cx.beginPath(); cx.moveTo(0, y); cx.lineTo(w, y); cx.stroke();
@@ -45,7 +45,7 @@ class Trace {
     // 고장 주입 표시
     for (const m of marks || []) {
       if (m < t0) continue;
-      cx.strokeStyle = 'rgba(240,136,62,.55)'; cx.setLineDash([3, 3]);
+      cx.strokeStyle = 'rgba(191,116,20,.55)'; cx.setLineDash([3, 3]);
       cx.beginPath(); cx.moveTo(X(m), 8); cx.lineTo(X(m), h - 18); cx.stroke();
       cx.setLineDash([]);
     }
@@ -55,16 +55,16 @@ class Trace {
     this.pts.forEach(([t, v], i) => (i ? cx.lineTo(X(t), Y(v)) : cx.moveTo(X(t), Y(v))));
     cx.stroke();
     // 축 라벨
-    cx.fillStyle = '#5f6d7a'; cx.font = '9.5px JetBrains Mono, monospace';
+    cx.fillStyle = 'rgba(28,28,28,.4)'; cx.font = '10px Inter, sans-serif';
     cx.fillText(this.fmt(hi), 4, 10); cx.fillText(this.fmt(lo), 4, h - 5);
     cx.textAlign = 'right'; cx.fillText(this.fmt(this.pts[this.pts.length - 1][1]), w - 4, 10);
     cx.textAlign = 'left';
   }
 }
 
-const trPress = new Trace($('c-press'), '#e6edf3', (v) => v.toFixed(2));
-const trTheta = new Trace($('c-theta'), '#4dd4ac', (v) => v.toFixed(2));
-const trSeff = new Trace($('c-seff'), '#2ea9d8', (v) => v.toFixed(1));
+const trPress = new Trace($('c-press'), 'rgb(28,28,28)', (v) => v.toFixed(2));
+const trTheta = new Trace($('c-theta'), 'rgb(0,122,255)', (v) => v.toFixed(2));
+const trSeff = new Trace($('c-seff'), 'rgb(160,188,232)', (v) => v.toFixed(1));
 const faultMarks = [];
 
 // ---------------------------------------------------------------- 도식 애니메이션
@@ -289,13 +289,13 @@ function drawRoR() {
   let lo = Infinity, hi = -Infinity;
   for (const [, p] of S) { const v = paToMtorr(p); if (v < lo) lo = v; if (v > hi) hi = v; }
   if (hi - lo < 1e-9) hi = lo + 1;
-  rorCx.strokeStyle = '#f0883e'; rorCx.lineWidth = 1.9; rorCx.beginPath();
+  rorCx.strokeStyle = 'rgb(191,116,20)'; rorCx.lineWidth = 1.9; rorCx.beginPath();
   S.forEach(([t, p], i) => {
     const x = ((t - t0) / (t1 - t0)) * w, y = h - 12 - ((paToMtorr(p) - lo) / (hi - lo)) * (h - 22);
     i ? rorCx.lineTo(x, y) : rorCx.moveTo(x, y);
   });
   rorCx.stroke();
-  rorCx.fillStyle = '#5f6d7a'; rorCx.font = '9.5px JetBrains Mono, monospace';
+  rorCx.fillStyle = 'rgba(28,28,28,.4)'; rorCx.font = '10px Inter, sans-serif';
   rorCx.fillText('P [mTorr] 상승곡선', 6, 12);
 }
 
