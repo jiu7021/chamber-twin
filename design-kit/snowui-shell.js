@@ -30,7 +30,14 @@
     }
     if (cur) mark(cur.id);
   }
-  if (scroll) { scroll.addEventListener('scroll', spy, { passive: true }); spy(); }
+  if (scroll) {
+    scroll.addEventListener('scroll', spy, { passive: true });
+    // 해시를 달고 들어온 경우 그 섹션으로 보낸다.
+    // .scroll 이 스크롤 컨테이너라 브라우저 기본 앵커 이동이 듣지 않는다.
+    var h = location.hash && document.querySelector(location.hash);
+    if (h && secs.indexOf(h) !== -1) scroll.scrollTop = h.offsetTop - 12;
+    spy();
+  }
 
   rows.forEach(function (a) {
     a.addEventListener('click', function (e) {
