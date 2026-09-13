@@ -247,52 +247,166 @@ window.scrollTo(0, 0);
             </svg>
           </div>
 
-          <!-- 우측: 실시간 공정 텔레메트리 (핵심 2대 지표 + 보조 4대 지표) -->
+          <!-- 우측: 실시간 공정 텔레메트리 (속도계 다이얼 + 가로 막대 안정성 클러스터) -->
           <div class="telemetry-col">
-            <!-- 핵심 1: 챔버 압력 -->
-            <div class="tele-hero-card">
+            <!-- 1. 자동차 속도계형 스로틀 밸브 각도(θ) 다이얼 게이지 -->
+            <div class="speedo-card">
               <div class="tele-card-head">
-                <span class="tele-tag">CHAMBER PRESSURE</span>
-                <span class="tele-title">챔버 압력 (P)</span>
+                <div class="speedo-head-left">
+                  <span class="tele-tag cyan">CORE ACTUATOR</span>
+                  <span class="tele-title">스로틀 밸브 각도 (θ) <span class="badge-accent">복원값</span></span>
+                </div>
+                <div class="speedo-head-right">
+                  <span class="speedo-live-tag" id="speedo-live-tag">● APC AUTO</span>
+                </div>
               </div>
-              <div class="tele-val-row">
-                <span class="tele-num" id="g-press">—</span>
-                <span class="tele-unit">mTorr</span>
+
+              <!-- SVG 자동차 속도계 다이얼 (비간섭형 상단 배치) -->
+              <div class="speedo-dial-wrap">
+                <svg class="speedo-svg" viewBox="0 0 240 124" id="svg-speedo">
+                  <defs>
+                    <linearGradient id="speedo-arc-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.3" />
+                      <stop offset="40%" stop-color="#00f0ff" stop-opacity="0.85" />
+                      <stop offset="75%" stop-color="#38bdf8" />
+                      <stop offset="100%" stop-color="#ff9f0a" />
+                    </linearGradient>
+                    <filter id="speedo-glow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                  </defs>
+
+                  <!-- 배경 다이얼 호 (Track 150° ~ 390°, R=66, Center=120,80) -->
+                  <path d="M 62.8 113.0 A 66 66 0 1 1 177.2 113.0" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="7" stroke-linecap="round" class="speedo-track" />
+                  
+                  <!-- 기준 공정 운전 영역 (20° ~ 35°) 초록색 가이드 대역 -->
+                  <path d="M 59.2 54.4 A 66 66 0 0 1 77.5 29.5" fill="none" stroke="rgba(48,209,88,0.3)" stroke-width="7" class="speedo-baseline-zone" />
+
+                  <!-- 동적 활성 아크 (Active Value Arc) -->
+                  <path d="M 62.8 113.0 A 66 66 0 1 1 177.2 113.0" fill="none" stroke="url(#speedo-arc-grad)" stroke-width="7" stroke-linecap="round" stroke-dasharray="276.5" stroke-dashoffset="276.5" id="speedo-arc-fill" filter="url(#speedo-glow)" />
+
+                  <!-- 다이얼 눈금 (Ticks) & 라벨 -->
+                  <line x1="68.0" y1="110.0" x2="57.6" y2="116.0" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" />
+                  <text x="44" y="117" class="speedo-tick-txt">0°</text>
+
+                  <line x1="59.9" y1="69.4" x2="51.1" y2="67.8" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+
+                  <line x1="81.4" y1="34.0" x2="73.7" y2="24.8" stroke="var(--neon-cyan)" stroke-width="2.2" />
+                  <text x="58" y="20" class="speedo-tick-txt highlight">30°</text>
+
+                  <line x1="120" y1="20" x2="120" y2="8" stroke="rgba(255,255,255,0.3)" stroke-width="2" />
+                  <text x="120" y="5" class="speedo-tick-txt" text-anchor="middle">45°</text>
+
+                  <line x1="158.6" y1="34.0" x2="166.3" y2="24.8" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+                  <text x="182" y="20" class="speedo-tick-txt">60°</text>
+
+                  <line x1="180.1" y1="69.4" x2="188.9" y2="67.8" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+
+                  <line x1="172.0" y1="110.0" x2="182.4" y2="116.0" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" />
+                  <text x="196" y="117" class="speedo-tick-txt">90°</text>
+
+                  <!-- 바늘 (Needle) 회전 그룹 (중심: 120, 80) -->
+                  <g id="speedo-needle-group" transform="rotate(-120, 120, 80)" style="transition: transform 0.08s ease-out;">
+                    <polygon points="118,80 119.2,22 120.8,22 122,80" fill="#00f0ff" filter="url(#speedo-glow)" />
+                    <circle cx="120" cy="20" r="2.2" fill="#ffffff" />
+                    <polygon points="118,80 120,91 122,80" fill="rgba(0, 240, 255, 0.4)" />
+                  </g>
+
+                  <!-- 중심 메탈릭 캡 링 -->
+                  <circle cx="120" cy="80" r="11" fill="#0c1017" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+                  <circle cx="120" cy="80" r="5" fill="#00f0ff" opacity="0.85" filter="url(#speedo-glow)" />
+                  <circle cx="120" cy="80" r="2" fill="#ffffff" />
+                </svg>
               </div>
-              <div class="tele-sub" id="g-press-delta">설정값 대비 —</div>
+
+              <!-- 다이얼 하단 분리형 디지털 텔레메트리 바 -->
+              <div class="speedo-tele-row">
+                <div class="speedo-main-val">
+                  <span class="speedo-num font-mono cyan" id="g-theta">0.00</span>
+                  <span class="speedo-unit">deg</span>
+                </div>
+                <div class="speedo-sub-col">
+                  <span class="speedo-open-pill font-mono"><b id="g-open">0.0</b>% 개방</span>
+                  <span class="speedo-delta font-mono" id="g-theta-delta">기준 대비 —</span>
+                </div>
+              </div>
             </div>
 
-            <!-- 핵심 2: 스로틀 밸브 각도 -->
-            <div class="tele-hero-card accent">
+            <!-- 2. 가로 막대그래프 클러스터 (안정성 & 공정 제어 상태 한눈에 검증) -->
+            <div class="h-meters-card">
               <div class="tele-card-head">
-                <span class="tele-tag cyan">VALVE ANGLE</span>
-                <span class="tele-title">스로틀 밸브 각도 (θ) <span class="badge-accent">복원값</span></span>
+                <span class="tele-tag">PROCESS STABILITY METERS</span>
+                <span class="tele-title">공정 물리 안정성 가로 게이지</span>
               </div>
-              <div class="tele-val-row cyan">
-                <span class="tele-num cyan" id="g-theta">—</span>
-                <span class="tele-unit">deg</span>
-                <span class="tele-meta">· <b id="g-open">—</b>% 개방</span>
-              </div>
-              <div class="tele-sub" id="g-theta-delta">기준 대비 —</div>
-            </div>
 
-            <!-- 보조 4대 지표 2×2 그리드 -->
-            <div class="tele-mini-grid">
-              <div class="tele-mini-tile">
-                <span class="t-lab">유효 배기속도 (S<sub>eff</sub>)</span>
-                <div class="t-val"><span id="g-seff">—</span> <span class="t-unit">L/s</span></div>
-              </div>
-              <div class="tele-mini-tile">
-                <span class="t-lab">총 스루풋 (Q)</span>
-                <div class="t-val"><span id="g-q">—</span> <span class="t-unit">Pa·m³/s</span></div>
-              </div>
-              <div class="tele-mini-tile">
-                <span class="t-lab">Knudsen 수 (배관)</span>
-                <div class="t-val"><span id="g-kn">—</span> <span id="g-regime" class="t-regime">—</span></div>
-              </div>
-              <div class="tele-mini-tile">
-                <span class="t-lab">경과 시간</span>
-                <div class="t-val"><span id="g-time">—</span> <span class="t-unit">s</span></div>
+              <div class="h-meters-list">
+                <!-- 막대 1: 챔버 압력 (P) - 40.0 mTorr 안전 대역 잠금 시각화 -->
+                <div class="h-meter-item">
+                  <div class="h-meter-meta">
+                    <span class="h-meter-lab">챔버 압력 (P)</span>
+                    <div class="h-meter-val-wrap">
+                      <span class="h-meter-val font-mono" id="g-press">0.00</span>
+                      <span class="h-meter-unit">mTorr</span>
+                      <span class="h-meter-badge ok" id="g-press-status-badge">STABLE</span>
+                    </div>
+                  </div>
+                  <!-- 가로 막대 트랙 (0~80 mTorr, 중앙 40 mTorr에 타깃 핀 & 안전존) -->
+                  <div class="h-meter-track press-track">
+                    <div class="press-safe-zone" title="정밀 제어 안전 대역 (38~42 mTorr)"></div>
+                    <div class="press-target-tick" title="설정값 40.0 mTorr"></div>
+                    <div class="h-meter-fill press-fill" id="bar-fill-press" style="width: 0%;"></div>
+                  </div>
+                  <div class="h-meter-foot font-mono" id="g-press-delta">설정값 40.0 mTorr 대비 +0.000%</div>
+                </div>
+
+                <!-- 막대 2: 유효 배기속도 (Seff) -->
+                <div class="h-meter-item">
+                  <div class="h-meter-meta">
+                    <span class="h-meter-lab">유효 배기속도 (S<sub>eff</sub>)</span>
+                    <div class="h-meter-val-wrap">
+                      <span class="h-meter-val font-mono" id="g-seff">0.0</span>
+                      <span class="h-meter-unit">L/s</span>
+                    </div>
+                  </div>
+                  <div class="h-meter-track">
+                    <div class="h-meter-fill seff-fill" id="bar-fill-seff" style="width: 0%;"></div>
+                  </div>
+                  <div class="h-meter-foot font-mono">TMP 배기계 동특성 (0 ~ 300 L/s)</div>
+                </div>
+
+                <!-- 막대 3: 총 스루풋 (Q) -->
+                <div class="h-meter-item">
+                  <div class="h-meter-meta">
+                    <span class="h-meter-lab">총 스루풋 (Q)</span>
+                    <div class="h-meter-val-wrap">
+                      <span class="h-meter-val font-mono" id="g-q">0.0000</span>
+                      <span class="h-meter-unit">Pa·m³/s</span>
+                    </div>
+                  </div>
+                  <div class="h-meter-track">
+                    <div class="h-meter-fill q-fill" id="bar-fill-q" style="width: 0%;"></div>
+                  </div>
+                  <div class="h-meter-foot font-mono">가스 유입 부하 (SF₆ 1.38 ↔ C₄F₈ 0.65)</div>
+                </div>
+
+                <!-- 막대 4: Knudsen 수 & 유동 영역 -->
+                <div class="h-meter-item">
+                  <div class="h-meter-meta">
+                    <span class="h-meter-lab">Knudsen 수 (배관)</span>
+                    <div class="h-meter-val-wrap">
+                      <span class="h-meter-val font-mono" id="g-kn">0.000</span>
+                      <span class="h-meter-regime" id="g-regime">공정 대기</span>
+                    </div>
+                  </div>
+                  <div class="h-meter-track kn-track">
+                    <div class="kn-zone viscous" title="점성류 (Kn < 0.01)">점성</div>
+                    <div class="kn-zone trans" title="중간류 (0.01 ~ 1.0)">중간류</div>
+                    <div class="kn-zone molecular" title="분자류 (Kn > 1.0)">분자</div>
+                    <div class="kn-marker" id="kn-marker" style="left: 0%;"></div>
+                  </div>
+                  <div class="h-meter-foot font-mono">경과 시간: <span id="g-time">0.0</span> s</div>
+                </div>
               </div>
             </div>
           </div>

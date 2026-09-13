@@ -119,12 +119,22 @@ function animateSvg(s, dtReal) {
   $('plasma').style.opacity = ch.gateClosed ? 0.25 : 1;
 }
 
-// ---------------------------------------------------------------- 계기 갱신
+// ---------------------------------------------------------------- 계기 갱신 (자동차 속도계 다이얼 & 가로 게이지 연동)
 function updateGauges(s) {
+  const needle = $('speedo-needle-group');
+  const arcFill = $('speedo-arc-fill');
+  const elFillP = $('bar-fill-press');
+  const elFillS = $('bar-fill-seff');
+  const elFillQ = $('bar-fill-q');
+  const badgeP = $('g-press-status-badge');
+  const knMarker = $('kn-marker');
+  const tagAuto = $('speedo-live-tag');
+
   if (!s.isProcessing) {
+    // 1. 디지털 수치 클램핑
     $('g-press').textContent = '0.00';
     const dEl = $('g-press-delta');
-    dEl.textContent = '공정 대기 (IDLE)';
+    dEl.textContent = '공정 대기 (IDLE) · 펌프 스탠바이';
     dEl.classList.remove('hot');
 
     $('g-theta').textContent = '0.00';
@@ -138,9 +148,29 @@ function updateGauges(s) {
     $('g-kn').textContent = '0.000';
     $('g-regime').textContent = '공정 대기';
     $('g-time').textContent = s.t.toFixed(1);
+
+    // 2. 속도계 게이지 (IDLE: 바닥 0° 위치 휴지)
+    if (needle) needle.setAttribute('transform', 'rotate(-120, 120, 80)');
+    if (arcFill) arcFill.style.strokeDashoffset = '276.5';
+    if (tagAuto) {
+      tagAuto.textContent = 'STANDBY';
+      tagAuto.style.borderColor = 'rgba(255,255,255,0.15)';
+      tagAuto.style.color = 'var(--ink-40)';
+    }
+
+    // 3. 가로 막대그래프 (0% 고정)
+    if (elFillP) elFillP.style.width = '0%';
+    if (elFillS) elFillS.style.width = '0%';
+    if (elFillQ) elFillQ.style.width = '0%';
+    if (badgeP) {
+      badgeP.textContent = 'STANDBY';
+      badgeP.className = 'h-meter-badge standby';
+    }
+    if (knMarker) knMarker.style.left = '0%';
     return;
   }
 
+  // ── 가동 중(RUNNING) 실시간 계측 및 애니메이션 ──
   const mt = paToMtorr(s.P), sp = paToMtorr(ch.pSp);
   $('g-press').textContent = mt.toFixed(2);
   const dP = ((s.P - ch.pSp) / ch.pSp) * 100;
@@ -161,6 +191,66 @@ function updateGauges(s) {
   $('g-kn').textContent = s.Kn < 0.01 ? s.Kn.toExponential(2) : s.Kn.toFixed(3);
   $('g-regime').textContent = s.regime.name;
   $('g-time').textContent = s.t.toFixed(1);
+
+  // 1. 자동차 속도계 바늘 & 아크 회전
+  // 스케일: 0° -> -120° 회전, 90° -> +120° 회전 (총 240° 스팬)
+  const degClamped = Math.max(0, Math.min(90, deg));
+  const rot = -120 + (degClamped / 90) * 240;
+  if (needle) needle.setAttribute('transform', `rotate(${rot.toFixed(1)}, 120, 80)`);
+  if (arcFill) {
+    const arcPct = degClamped / 90;
+    arcFill.style.strokeDashoffset = (276.5 * (1 - arcPct)).toFixed(1);
+  }
+  if (tagAuto) {
+    tagAuto.textContent = ch.apcOn ? '● APC AUTO' : '⚠️ APC OFF';
+    tagAuto.style.borderColor = ch.apcOn ? 'rgba(0, 240, 255, 0.4)' : 'rgba(255, 69, 58, 0.4)';
+    tagAuto.style.color = ch.apcOn ? 'var(--neon-cyan)' : '#ff453a';
+  }
+
+  // 2. 가로 막대 1: 챔버 압력 (0~80 mTorr, 40 mTorr = 50%)
+  const pPct = Math.max(0, Math.min(100, (mt / 80) * 100));
+  if (elFillP) {
+    elFillP.style.width = `${pPct.toFixed(1)}%`;
+    if (Math.abs(mt - sp) <= 1.0) {
+      elFillP.style.background = 'linear-gradient(90deg, #10b981 0%, #00f0ff 100%)';
+    } else {
+      elFillP.style.background = 'linear-gradient(90deg, #ff9f0a 0%, #ff453a 100%)';
+    }
+  }
+  if (badgeP) {
+    if (Math.abs(mt - sp) <= 0.8) {
+      badgeP.textContent = 'STABLE (초안정)';
+      badgeP.className = 'h-meter-badge ok';
+    } else if (Math.abs(mt - sp) <= 2.5) {
+      badgeP.textContent = 'COMPENSATING';
+      badgeP.className = 'h-meter-badge warn';
+    } else {
+      badgeP.textContent = 'UNSTABLE';
+      badgeP.className = 'h-meter-badge bad';
+    }
+  }
+
+  // 3. 가로 막대 2: 유효 배기속도 (0~300 L/s)
+  const seffLps = m3sToLps(s.sEff);
+  const seffPct = Math.max(0, Math.min(100, (seffLps / 300) * 100));
+  if (elFillS) elFillS.style.width = `${seffPct.toFixed(1)}%`;
+
+  // 4. 가로 막대 3: 총 스루풋 Q (0~2.0 Pa·m³/s)
+  const qPct = Math.max(0, Math.min(100, (s.Q / 2.0) * 100));
+  if (elFillQ) elFillQ.style.width = `${qPct.toFixed(1)}%`;
+
+  // 5. 크누센 마커 위치 (로그 스케일 대역)
+  if (knMarker) {
+    let knPos = 50;
+    if (s.Kn <= 0.01) {
+      knPos = Math.max(4, (s.Kn / 0.01) * 33);
+    } else if (s.Kn >= 1.0) {
+      knPos = Math.min(96, 67 + ((s.Kn - 1.0) / 5.0) * 33);
+    } else {
+      knPos = 33 + ((s.Kn - 0.01) / 0.99) * 34;
+    }
+    knMarker.style.left = `${knPos.toFixed(1)}%`;
+  }
 }
 
 // ---------------------------------------------------------------- 3D / 2D 뷰포트 토글 모드

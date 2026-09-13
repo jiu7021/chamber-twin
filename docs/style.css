@@ -718,87 +718,287 @@ b { font-weight: 600; color: var(--ink); }
   justify-content: space-between;
 }
 
-.tele-hero-card {
+/* ═══ 1구역 우측: 자동차 속도계 다이얼 & 공정 안정성 가로 게이지 클러스터 ═══ */
+.speedo-card {
   background: var(--surface-sunken);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-12);
-  padding: 12px 16px;
+  border: 1px solid rgba(0, 240, 255, 0.28);
+  border-radius: var(--radius-16);
+  padding: 12px 14px 8px 14px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  background: radial-gradient(circle at 50% 100%, rgba(0, 240, 255, 0.07) 0%, rgba(10, 14, 22, 0.95) 75%);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
 }
-.tele-hero-card.accent {
-  border-color: rgba(0, 240, 255, 0.3);
-  background: rgba(0, 240, 255, 0.04);
+.speedo-head-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.tele-card-head {
+.speedo-head-right {
+  display: flex;
+  align-items: center;
+}
+.speedo-live-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 4px;
+  padding: 2px 6px;
+  letter-spacing: 0.04em;
+}
+
+.speedo-dial-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: -2px;
+}
+.speedo-svg {
+  width: 100%;
+  max-width: 250px;
+  height: auto;
+  display: block;
+}
+.speedo-tick-txt {
+  font-size: 8.5px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  fill: var(--ink-40);
+  dominant-baseline: middle;
+}
+.speedo-tick-txt.highlight {
+  fill: var(--neon-cyan);
+  font-weight: 700;
+}
+
+.speedo-tele-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-}
-.tele-tag {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--ink-40);
-}
-.tele-tag.cyan { color: var(--neon-cyan); }
-.tele-title { font-size: 12.5px; font-weight: 600; color: var(--ink-80); }
-.badge-accent {
-  background: rgba(0, 240, 255, 0.16);
-  color: var(--neon-cyan);
-  border: 1px solid rgba(0, 240, 255, 0.4);
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 6px;
-  display: inline-block;
-  vertical-align: middle;
-}
-.tele-val-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+  padding: 4px 6px 0 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   margin-top: 2px;
 }
-.tele-num {
-  font-size: 28px;
-  line-height: 1.1;
-  font-weight: 700;
+.speedo-main-val {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.speedo-num {
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 800;
   letter-spacing: -0.02em;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 16px rgba(0, 240, 255, 0.45);
+}
+.speedo-unit {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-60);
+  text-transform: uppercase;
+}
+.speedo-sub-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.speedo-open-pill {
+  font-size: 10.5px;
+  color: var(--ink-80);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1px 7px;
+  border-radius: 4px;
+}
+.speedo-open-pill b {
+  color: #ffffff;
+}
+.speedo-delta {
+  font-size: 10px;
+  color: var(--ink-40);
+}
+.speedo-delta.hot {
+  color: var(--warn);
+  font-weight: 700;
+}
+
+/* 하단: 공정 물리 안정성 가로 게이지 클러스터 */
+.h-meters-card {
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-16);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.h-meters-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 2px;
+}
+.h-meter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.h-meter-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.h-meter-lab {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-60);
+}
+.h-meter-val-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.h-meter-val {
+  font-size: 13.5px;
+  font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-.tele-num.cyan {
+.h-meter-unit {
+  font-size: 10px;
+  color: var(--ink-40);
+  font-weight: 500;
+}
+.h-meter-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+}
+.h-meter-badge.ok {
+  background: rgba(48, 209, 88, 0.16);
+  border: 1px solid rgba(48, 209, 88, 0.4);
+  color: #30d158;
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.25);
+}
+.h-meter-badge.warn {
+  background: rgba(255, 159, 10, 0.16);
+  border: 1px solid rgba(255, 159, 10, 0.4);
+  color: #ff9f0a;
+}
+.h-meter-badge.standby {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--ink-40);
+}
+.h-meter-regime {
+  font-size: 10.5px;
+  font-weight: 700;
   color: var(--neon-cyan);
-  text-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
 }
-.tele-unit { font-size: 13px; font-weight: 600; color: var(--ink-40); }
-.tele-meta { font-size: 12px; color: var(--ink-80); margin-left: 4px; }
-.tele-meta b { color: var(--ink); }
-.tele-sub { font-size: 11px; color: var(--ink-40); font-family: var(--font-mono); margin-top: 2px; }
-.tele-sub.hot { color: var(--warn); font-weight: 600; }
 
-/* 2×2 미니 타일 */
-.tele-mini-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+.h-meter-track {
+  width: 100%;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  position: relative;
+  overflow: hidden;
 }
-.tele-mini-tile {
-  background: var(--surface-sunken);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-8);
-  padding: 8px 12px;
+.h-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.12s ease-out;
+}
+.h-meter-fill.press-fill {
+  background: linear-gradient(90deg, #10b981 0%, #00f0ff 100%);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+}
+.h-meter-fill.seff-fill {
+  background: linear-gradient(90deg, #0a84ff 0%, #00f0ff 100%);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
+}
+.h-meter-fill.q-fill {
+  background: linear-gradient(90deg, #a855f7 0%, #00f0ff 100%);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.35);
+}
+
+/* 압력 트랙 전용 안전 영역(Safe Zone) 및 타깃 틱(Target Tick) */
+.press-track {
+  overflow: visible;
+}
+.press-safe-zone {
+  position: absolute;
+  left: 47.5%; /* 38 mTorr / 80 mTorr = 47.5% */
+  width: 5%;    /* 42 mTorr / 80 mTorr = 52.5% -> 5% 폭 */
+  top: -2px;
+  bottom: -2px;
+  background: rgba(48, 209, 88, 0.25);
+  border: 1px solid rgba(48, 209, 88, 0.6);
+  border-radius: 2px;
+  z-index: 2;
+  pointer-events: none;
+}
+.press-target-tick {
+  position: absolute;
+  left: 50%; /* 40 mTorr = 50% */
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: #ffffff;
+  box-shadow: 0 0 6px #30d158;
+  z-index: 3;
+  border-radius: 1px;
+}
+
+/* 크누센 수 3분할 트랙 */
+.kn-track {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  overflow: visible;
+  height: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  position: relative;
+  border-radius: 4px;
 }
-.t-lab { font-size: 11px; color: var(--ink-40); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.t-val { font-size: 15px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 4px; }
-.t-unit { font-size: 11px; color: var(--ink-40); font-weight: 400; }
-.t-regime { font-size: 11px; color: var(--neon-cyan); font-weight: 600; }
+.kn-zone {
+  flex: 1;
+  font-size: 7.5px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 9px;
+  color: var(--ink-40);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  user-select: none;
+}
+.kn-zone:last-child { border-right: none; }
+.kn-zone.viscous { background: rgba(56, 189, 248, 0.08); }
+.kn-zone.trans { background: rgba(0, 240, 255, 0.12); color: var(--neon-cyan); }
+.kn-zone.molecular { background: rgba(168, 85, 247, 0.08); }
+.kn-marker {
+  position: absolute;
+  top: -2px;
+  width: 4px;
+  height: 13px;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 8px var(--neon-cyan);
+  border-radius: 2px;
+  transition: left 0.12s ease-out;
+  transform: translateX(-50%);
+  z-index: 4;
+}
+
+.h-meter-foot {
+  font-size: 9.5px;
+  color: var(--ink-40);
+}
 
 /* ═══ 2구역: 3열 롤링 차트 (완벽한 스타일링) ═══ */
 .charts {
