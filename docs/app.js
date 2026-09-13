@@ -91,6 +91,16 @@ const faultMarks = [];
 let flowPhase = 0, bladePhase = 0;
 function animateSvg(s, dtReal) {
   const arrows = $('flow-arrows').children;
+  if (!s.isProcessing) {
+    for (let i = 0; i < arrows.length; i++) arrows[i].style.opacity = 0;
+    $('valve-disc').style.transform = 'rotate(0deg)';
+    $('svg-press').textContent = '0.0';
+    $('svg-theta').textContent = '0.0°';
+    $('svg-pump').textContent = `${(ch.pumpDerate * 100).toFixed(0)} % · 0 L/s`;
+    $('leak-mark').classList.add('hidden');
+    $('plasma').style.opacity = 0;
+    return;
+  }
   const speed = 26 + 52 * Math.min(s.Q / 2.0, 1);
   flowPhase = (flowPhase + speed * dtReal) % 25;
   for (let i = 0; i < arrows.length; i++) {
@@ -111,6 +121,26 @@ function animateSvg(s, dtReal) {
 
 // ---------------------------------------------------------------- 계기 갱신
 function updateGauges(s) {
+  if (!s.isProcessing) {
+    $('g-press').textContent = '0.00';
+    const dEl = $('g-press-delta');
+    dEl.textContent = '공정 대기 (IDLE)';
+    dEl.classList.remove('hot');
+
+    $('g-theta').textContent = '0.00';
+    $('g-open').textContent = '0.0';
+    const tEl = $('g-theta-delta');
+    tEl.textContent = '공정 대기 (IDLE)';
+    tEl.classList.remove('hot');
+
+    $('g-seff').textContent = '0.0';
+    $('g-q').textContent = '0.0000';
+    $('g-kn').textContent = '0.000';
+    $('g-regime').textContent = '공정 대기';
+    $('g-time').textContent = s.t.toFixed(1);
+    return;
+  }
+
   const mt = paToMtorr(s.P), sp = paToMtorr(ch.pSp);
   $('g-press').textContent = mt.toFixed(2);
   const dP = ((s.P - ch.pSp) / ch.pSp) * 100;
@@ -133,6 +163,549 @@ function updateGauges(s) {
   $('g-time').textContent = s.t.toFixed(1);
 }
 
+// ---------------------------------------------------------------- 3D / 2D 뷰포트 토글 모드
+let currentViewMode = '3d';
+const btn3d = $('btn-view-3d');
+const btn2d = $('btn-view-2d');
+const wrap3d = $('chamber-3d-wrap');
+const svgChamber = $('chamber-svg');
+const btnReset3d = $('btn-3d-reset');
+
+function setViewMode(mode) {
+  currentViewMode = mode;
+  if (btn3d) btn3d.classList.toggle('on', mode === '3d');
+  if (btn2d) btn2d.classList.toggle('on', mode === '2d');
+  if (wrap3d) wrap3d.style.display = mode === '3d' ? 'flex' : 'none';
+  if (svgChamber) svgChamber.style.display = mode === '2d' ? 'block' : 'none';
+  if (window.Chamber3D) {
+    window.Chamber3D.setActive(mode === '3d');
+  }
+}
+
+if (btn3d) btn3d.addEventListener('click', () => setViewMode('3d'));
+if (btn2d) btn2d.addEventListener('click', () => setViewMode('2d'));
+if (btnReset3d && window.Chamber3D) {
+  btnReset3d.addEventListener('click', () => window.Chamber3D.resetView());
+}
+
+// 3D 엔진 초기화
+let has3D = false;
+const urlParams = new URLSearchParams(window.location.search);
+const initialMode = urlParams.get('view') === '2d' ? '2d' : '3d';
+try {
+  if (window.Chamber3D && window.Chamber3D.init('chamber-3d-wrap')) {
+    has3D = true;
+    setViewMode(initialMode);
+  } else {
+    setViewMode('2d');
+  }
+} catch (e) {
+  console.warn('3D initialization failed:', e);
+  setViewMode('2d');
+}
+
+// ---------------------------------------------------------------- 공정 모드 토글 (정속 정상상태 vs 보쉬 DRIE)
+const btnSteady = $('btn-mode-steady');
+const btnBosch = $('btn-mode-bosch');
+
+function setProcessMode(isBosch) {
+  ch.boschMode = isBosch;
+  if (btnSteady) btnSteady.classList.toggle('on', !isBosch);
+  if (btnBosch) btnBosch.classList.toggle('on', isBosch);
+}
+
+if (btnSteady) btnSteady.addEventListener('click', () => setProcessMode(false));
+if (btnBosch) btnBosch.addEventListener('click', () => setProcessMode(true));
+
+// 기본 공정 모드: 보쉬(Bosch DRIE) 고속 펄스 공정 기본 활성화!
+setProcessMode(true);
+if (urlParams.get('mode') === 'steady') {
+  setProcessMode(false);
+}
+if (urlParams.get('gas') === 'c4f8') {
+  ch.boschTimer = 4.8;
+}
+
+// ---------------------------------------------------------------- 10매 로트(Lot) 가상계측(VM) 관리자 (Zenodo 96매 실측 연동)
+const lotState = {
+  currentLot: 1,        // 1 ~ 10
+  currentWafer: 1,      // 1 ~ 10
+  history: [],          // W2W depth_pct for current lot
+  autoTimer: null
+};
+
+const cvSaw = $('c-lot-sawtooth');
+const cxSaw = cvSaw ? cvSaw.getContext('2d') : null;
+
+function drawSawtooth() {
+  if (!cvSaw || !cxSaw) return;
+  const r = cvSaw.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+  cvSaw.width = Math.max(r.width * d, 10);
+  cvSaw.height = Math.max(r.height * d, 10);
+  cxSaw.setTransform(d, 0, 0, d, 0, 0);
+  const w = r.width, h = r.height;
+  cxSaw.clearRect(0, 0, w, h);
+
+  // Y 범위: 96.0% ~ 101.0%
+  const lo = 96.0, hi = 101.0;
+  const Y = (v) => h - 14 - ((v - lo) / (hi - lo)) * (h - 26);
+  const X = (wf) => 18 + ((wf - 1) / 9) * (w - 36);
+
+  // 100% 기준선 및 97.28%(-2.72%) 관리한계 점선
+  cxSaw.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  cxSaw.lineWidth = 1;
+  cxSaw.setLineDash([3, 3]);
+  const y100 = Y(100.0);
+  cxSaw.beginPath(); cxSaw.moveTo(0, y100); cxSaw.lineTo(w, y100); cxSaw.stroke();
+
+  const y97 = Y(97.28);
+  cxSaw.strokeStyle = 'rgba(255, 69, 58, 0.35)';
+  cxSaw.beginPath(); cxSaw.moveTo(0, y97); cxSaw.lineTo(w, y97); cxSaw.stroke();
+  cxSaw.setLineDash([]);
+
+  // 10매 실측 톱니 곡선
+  if (lotState.history.length > 0) {
+    cxSaw.strokeStyle = '#ff453a';
+    cxSaw.lineWidth = 2.2;
+    cxSaw.lineJoin = 'round';
+    cxSaw.beginPath();
+    lotState.history.forEach((val, i) => {
+      const x = X(i + 1), y = Y(val);
+      i === 0 ? cxSaw.moveTo(x, y) : cxSaw.lineTo(x, y);
+    });
+    cxSaw.stroke();
+
+    // 데이터 포인트
+    lotState.history.forEach((val, i) => {
+      const x = X(i + 1), y = Y(val);
+      const isCur = (i + 1 === lotState.currentWafer);
+      cxSaw.fillStyle = isCur ? '#00f0ff' : '#ff453a';
+      cxSaw.beginPath();
+      cxSaw.arc(x, y, isCur ? 4.5 : 3.0, 0, Math.PI * 2);
+      cxSaw.fill();
+    });
+  }
+
+  // 100% 및 97.28% 라벨
+  cxSaw.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  cxSaw.font = '9px monospace';
+  cxSaw.fillText('100.0%', w - 38, y100 - 3);
+  cxSaw.fillText('97.28%', w - 38, y97 + 10);
+}
+
+if (cvSaw) {
+  new ResizeObserver(() => drawSawtooth()).observe(cvSaw);
+}
+
+function updateLotUI() {
+  const dataset = window.LOT_DATASET || {};
+  const lotKey = `lot_${lotState.currentLot}`;
+  const lot = dataset[lotKey] || null;
+  const maxWafers = lot ? lot.count : 10;
+  const cur = Math.max(1, Math.min(lotState.currentWafer, maxWafers));
+  lotState.currentWafer = cur;
+
+  const wafer = (lot && lot.wafers) ? lot.wafers[cur - 1] : null;
+
+  // 실측 드리프트 각도를 챔버 진공 물리 모델에 연동
+  const driftDeg = wafer ? wafer.drift_deg : (cur - 1) * 0.085;
+  ch.setWafer(cur, driftDeg);
+
+  // 로트 선택 버튼 하이라이트 동기화
+  const lotPills = document.querySelectorAll('#lot-pills .lot-pill');
+  lotPills.forEach((p) => {
+    const lNum = parseInt(p.getAttribute('data-lot'), 10);
+    p.classList.toggle('active', lNum === lotState.currentLot);
+    p.classList.toggle('completed', lNum < lotState.currentLot);
+  });
+
+  // 웨이퍼 알약 업데이트
+  const pills = document.querySelectorAll('#wafer-pills .wf-pill');
+  pills.forEach((p, idx) => {
+    const wfNum = idx + 1;
+    p.classList.toggle('active', wfNum === cur);
+    p.classList.toggle('past', wfNum < cur);
+  });
+
+  // 로트 & 웨이퍼 타이틀 업데이트
+  const lotTitle = $('lot-title-text');
+  if (lotTitle) {
+    const dateStr = lot ? lot.date : '2024-07-02';
+    lotTitle.textContent = `로트 웨이퍼 순번 · LOT #${lotState.currentLot} (${dateStr})`;
+  }
+  const expKeyEl = $('lot-exp-key');
+  if (expKeyEl) {
+    const expKey = wafer ? wafer.exp_key : `EXP_${lotState.currentLot}_${cur}`;
+    expKeyEl.textContent = `EXP: ${expKey}`;
+  }
+  const txt = $('lot-wafer-text');
+  if (txt) txt.textContent = `WAFER #${cur} / ${maxWafers}`;
+
+  // 실측 절대 식각 깊이 (µm) 및 백분율 (%)
+  const depthUm = wafer ? wafer.depth_um : (44.289 - (cur - 1) * 0.134);
+  const depthPct = wafer ? wafer.depth_pct : (100.0 - (cur - 1) * 0.3022);
+  const drift = driftDeg;
+  const oes = Math.max(88, 100.0 - (cur - 1) * 0.944);
+
+  const elDepthUm = $('vm-depth-um');
+  if (elDepthUm) elDepthUm.textContent = depthUm.toFixed(2);
+  const elDepthPct = $('vm-depth-pct');
+  if (elDepthPct) elDepthPct.textContent = `(${depthPct.toFixed(2)}%)`;
+
+  const elSawVal = $('saw-depth-val');
+  if (elSawVal) elSawVal.textContent = `${depthUm.toFixed(2)} µm (${depthPct.toFixed(2)}%)`;
+
+  const elDepthDelta = $('vm-depth-delta');
+  if (elDepthDelta) {
+    const w1Depth = lot ? lot.w1_depth : 44.289;
+    const diffUm = depthUm - w1Depth;
+    const lossPct = (depthPct - 100.0).toFixed(2);
+    if (cur === 1) {
+      elDepthDelta.textContent = `기준 원점 (${w1Depth.toFixed(2)} µm, 신규 로트)`;
+    } else {
+      elDepthDelta.textContent = `누적 변위: ${diffUm.toFixed(2)} µm (${lossPct}%) · 실측값`;
+    }
+  }
+
+  const elDrift = $('vm-drift');
+  if (elDrift) elDrift.textContent = drift.toFixed(2);
+
+  const elOes = $('vm-oes');
+  if (elOes) elOes.textContent = oes.toFixed(1);
+
+  const badge = $('badge-lot-status');
+  if (badge) {
+    if (cur === 1) {
+      badge.textContent = `LOT #${lotState.currentLot} 개시 · 챔버 정상`;
+      badge.className = 'badge ok';
+    } else if (cur >= maxWafers) {
+      badge.textContent = `⚠️ LOT #${lotState.currentLot} (${maxWafers}매) 완료 · 세정 주기 도달`;
+      badge.className = 'badge bad';
+    } else {
+      badge.textContent = `LOT #${lotState.currentLot} 진행 중 (${cur}/${maxWafers}) · 오염 누적`;
+      badge.className = 'badge warn';
+    }
+  }
+
+  // history 동기화 (현재 로트 실측치 채우기)
+  lotState.history = [];
+  if (lot && lot.wafers) {
+    for (let w = 0; w < cur; w++) {
+      lotState.history.push(lot.wafers[w].depth_pct);
+    }
+  } else {
+    for (let w = 1; w <= cur; w++) {
+      lotState.history.push(100.0 - (w - 1) * 0.3022);
+    }
+  }
+  drawSawtooth();
+}
+
+const btnTopRun = $('btn-top-lot-run');
+const btnTopNext = $('btn-top-wafer-next');
+const btnTopClean = $('btn-top-chamber-clean');
+const btnWaferNext = $('btn-wafer-next');
+const btnLotAuto = $('btn-lot-auto');
+const btnChamberClean = $('btn-chamber-clean');
+
+function startLotProcess() {
+  ch.start();
+  if (btnTopRun) {
+    btnTopRun.innerHTML = '<span class="btn-icon">⏸️</span> 일시 정지';
+    btnTopRun.classList.remove('pulse');
+  }
+  if (btnTopClean) btnTopClean.classList.remove('pulse');
+  if (btnLotAuto) btnLotAuto.textContent = '⏸️ 일시 정지';
+}
+
+function pauseLotProcess() {
+  ch.stop();
+  if (lotState.autoTimer) {
+    clearInterval(lotState.autoTimer);
+    lotState.autoTimer = null;
+  }
+  if (btnTopRun) {
+    btnTopRun.innerHTML = '<span class="btn-icon">⚡</span> 10매 연속 가공';
+    if (lotState.currentWafer < 10) btnTopRun.classList.add('pulse');
+  }
+  if (btnLotAuto) btnLotAuto.textContent = '⚡ 10매 연속 가공';
+}
+
+function nextWafer() {
+  const dataset = window.LOT_DATASET || {};
+  const lotKey = `lot_${lotState.currentLot}`;
+  const maxWafers = dataset[lotKey] ? dataset[lotKey].count : 10;
+
+  startLotProcess();
+  if (lotState.currentWafer < maxWafers) {
+    lotState.currentWafer++;
+    updateLotUI();
+  } else {
+    pauseLotProcess();
+    const nextLotNum = (lotState.currentLot % 10) + 1;
+    if (btnTopClean) {
+      btnTopClean.innerHTML = `🧼 챔버 세정 &amp; 다음 로트 (LOT ${nextLotNum}) →`;
+      btnTopClean.classList.add('pulse');
+    }
+    if (btnChamberClean) {
+      btnChamberClean.textContent = `🧼 챔버 세정 & 다음 로트 (LOT ${nextLotNum}) →`;
+    }
+  }
+}
+
+function cleanLot(advance = true) {
+  pauseLotProcess();
+  ch.cleanChamber();
+  if (advance && lotState.currentWafer >= 10) {
+    lotState.currentLot = (lotState.currentLot % 10) + 1;
+  }
+  lotState.currentWafer = 1;
+  updateLotUI();
+  if (btnTopClean) {
+    btnTopClean.innerHTML = '🧼 챔버 세정';
+    btnTopClean.classList.remove('pulse');
+  }
+  if (btnChamberClean) {
+    btnChamberClean.textContent = '🧼 챔버 세정 (Clean & Reset)';
+  }
+  if (btnTopRun) btnTopRun.classList.add('pulse');
+}
+
+function toggleAutoLot() {
+  if (lotState.autoTimer) {
+    pauseLotProcess();
+  } else {
+    const dataset = window.LOT_DATASET || {};
+    const lotKey = `lot_${lotState.currentLot}`;
+    const maxWafers = dataset[lotKey] ? dataset[lotKey].count : 10;
+
+    if (lotState.currentWafer >= maxWafers) {
+      cleanLot(true);
+    }
+    startLotProcess();
+    lotState.autoTimer = setInterval(() => {
+      const d = window.LOT_DATASET || {};
+      const lk = `lot_${lotState.currentLot}`;
+      const mw = d[lk] ? d[lk].count : 10;
+      if (lotState.currentWafer < mw) {
+        lotState.currentWafer++;
+        updateLotUI();
+      } else {
+        pauseLotProcess();
+        const nextLotNum = (lotState.currentLot % 10) + 1;
+        if (btnTopClean) {
+          btnTopClean.innerHTML = `🧼 챔버 세정 &amp; 다음 로트 (LOT ${nextLotNum}) →`;
+          btnTopClean.classList.add('pulse');
+        }
+        if (btnChamberClean) {
+          btnChamberClean.textContent = `🧼 챔버 세정 & 다음 로트 (LOT ${nextLotNum}) →`;
+        }
+      }
+    }, 1500);
+  }
+}
+
+if (btnTopRun) btnTopRun.addEventListener('click', toggleAutoLot);
+if (btnTopNext) btnTopNext.addEventListener('click', nextWafer);
+if (btnTopClean) btnTopClean.addEventListener('click', () => cleanLot(true));
+if (btnWaferNext) btnWaferNext.addEventListener('click', nextWafer);
+if (btnLotAuto) btnLotAuto.addEventListener('click', toggleAutoLot);
+if (btnChamberClean) btnChamberClean.addEventListener('click', () => cleanLot(true));
+
+// 실측 10개 로트 탭 버튼 이벤트 등록
+document.querySelectorAll('#lot-pills .lot-pill').forEach((pill) => {
+  pill.addEventListener('click', () => {
+    const l = parseInt(pill.getAttribute('data-lot'), 10);
+    if (!isNaN(l) && l >= 1 && l <= 10) {
+      pauseLotProcess();
+      lotState.currentLot = l;
+      lotState.currentWafer = 1;
+      ch.cleanChamber();
+      updateLotUI();
+    }
+  });
+});
+
+// 초기 상태: 대기 (IDLE) 모드로 시작하여 사용자의 [⚡ 10매 연속 가공] 클릭 유도
+ch.stop();
+updateLotUI();
+
+if (urlParams.get('run') === '1') { toggleAutoLot(); }
+if (urlParams.get('lot')) {
+  const targetLot = parseInt(urlParams.get('lot'), 10);
+  if (!isNaN(targetLot) && targetLot >= 1 && targetLot <= 10) {
+    lotState.currentLot = targetLot;
+    updateLotUI();
+  }
+}
+
+// ---------------------------------------------------------------- 3D HUD 계측 갱신
+function update3dHud(s) {
+  if (!s) return;
+  if (!s.isProcessing) {
+    const elPress = $('hud-3d-press');
+    if (elPress) elPress.textContent = '0.00';
+    const elRegime = $('hud-3d-regime');
+    if (elRegime) elRegime.textContent = '공정 대기 (IDLE)';
+    const elKn = $('hud-3d-kn');
+    if (elKn) elKn.textContent = '0.000';
+    const elTheta = $('hud-3d-theta');
+    if (elTheta) elTheta.textContent = '0.0';
+    const elOpen = $('hud-3d-open');
+    if (elOpen) elOpen.textContent = '0.0';
+    const elSeff = $('hud-3d-seff');
+    if (elSeff) elSeff.textContent = '0.0';
+    const elPumpPct = $('hud-3d-pump-pct');
+    if (elPumpPct) elPumpPct.textContent = '100';
+    const elMfcVal = $('hud-3d-mfc-val');
+    if (elMfcVal) elMfcVal.textContent = '0.0';
+    const elMfcSub = $('hud-3d-mfc-sub');
+    if (elMfcSub) elMfcSub.textContent = '가스 공급 대기 (STANDBY)';
+    const elMfcDot = $('hud-3d-mfc-dot');
+    if (elMfcDot) { elMfcDot.className = 'hud-dot'; elMfcDot.style.background = '#64748b'; }
+    const elPfore = $('hud-3d-pfore');
+    if (elPfore) elPfore.textContent = '—';
+    const elLeak = $('hud-3d-leak');
+    if (elLeak) elLeak.classList.add('hidden');
+    return;
+  }
+
+  const mt = paToMtorr(s.P);
+  const elPress = $('hud-3d-press');
+  if (elPress) elPress.textContent = mt.toFixed(2);
+
+  const elRegime = $('hud-3d-regime');
+  if (elRegime) {
+    const rName = s.regime ? s.regime.name : '중간류';
+    elRegime.textContent = s.boschMode ? `${rName} · 보쉬 DRIE` : rName;
+  }
+
+  const elKn = $('hud-3d-kn');
+  if (elKn) elKn.textContent = s.Kn < 0.01 ? s.Kn.toExponential(2) : s.Kn.toFixed(3);
+
+  // 스로틀 밸브 각도 & 개도율
+  const deg = (s.theta * 180) / Math.PI;
+  const elTheta = $('hud-3d-theta');
+  if (elTheta) elTheta.textContent = deg.toFixed(1);
+  const elOpen = $('hud-3d-open');
+  if (elOpen) elOpen.textContent = s.openPct.toFixed(1);
+
+  // TMP 배기속도 & 정격
+  const elSeff = $('hud-3d-seff');
+  if (elSeff) elSeff.textContent = m3sToLps(s.sEff).toFixed(1);
+  const elPumpPct = $('hud-3d-pump-pct');
+  if (elPumpPct) elPumpPct.textContent = (ch.pumpDerate * 100).toFixed(0);
+
+  // 가스 유입 (MFC) - 보쉬 DRIE 모드 시 SF₆ vs C₄F₈ 실시간 전환
+  const elMfcVal = $('hud-3d-mfc-val');
+  const elMfcSub = $('hud-3d-mfc-sub');
+  const elMfcDot = $('hud-3d-mfc-dot');
+  if (ch.gateClosed) {
+    if (elMfcVal) elMfcVal.textContent = '0.0';
+    if (elMfcSub) elMfcSub.textContent = '가스 공급 차단 (CLOSED)';
+    if (elMfcDot) { elMfcDot.className = 'hud-dot'; elMfcDot.style.background = '#ff453a'; }
+  } else if (s.boschMode) {
+    const isEtch = s.boschPhase === 'etch';
+    const flow = isEtch ? ch.qEtch : ch.qPass;
+    const sccm = (flow * 592.2).toFixed(1);
+    if (elMfcVal) elMfcVal.textContent = sccm;
+    if (elMfcSub) elMfcSub.textContent = isEtch ? `SF₆ 식각 가스 (${flow.toFixed(2)} Pa·m³/s)` : `C₄F₈ 보호 가스 (${flow.toFixed(2)} Pa·m³/s)`;
+    if (elMfcDot) {
+      elMfcDot.className = 'hud-dot';
+      elMfcDot.style.background = isEtch ? '#00f0ff' : '#30d158';
+    }
+  } else {
+    const qActual = ch.qMfc + ch.mfcOffset;
+    const sccm = (qActual * 592.2).toFixed(1);
+    if (elMfcVal) elMfcVal.textContent = sccm;
+    if (elMfcSub) elMfcSub.textContent = `Ar ${qActual.toFixed(2)} Pa·m³/s (공급 중)`;
+    if (elMfcDot) { elMfcDot.className = 'hud-dot green'; elMfcDot.style.background = ''; }
+  }
+
+  // 포어라인 백킹 압력 (2차 드라이 러핑펌프 흡입구)
+  const elPfore = $('hud-3d-pfore');
+  if (elPfore) {
+    if (ch.gateClosed) {
+      elPfore.textContent = '—';
+    } else {
+      const pf = Math.max(75, Math.min(160, 80 + s.Q * 25));
+      elPfore.textContent = pf.toFixed(0);
+    }
+  }
+
+  // 누설 고장 경보
+  const elLeak = $('hud-3d-leak');
+  const elLeakVal = $('hud-3d-leak-val');
+  const hasLeak = (ch.qLeak && ch.qLeak > 0) || (ch.q1 && ch.q1 > 0);
+  if (elLeak) {
+    elLeak.classList.toggle('hidden', !hasLeak);
+    if (hasLeak && elLeakVal) {
+      const qVal = ch.qLeak > 0 ? ch.qLeak : ch.q1;
+      elLeakVal.textContent = `${qVal.toFixed(3)} Pa·m³/s`;
+    }
+  }
+}
+
+
+function updateGasIndicator(s) {
+  if (!s) return;
+  const elInd = $('live-gas-indicator');
+  const elBadge = $('gas-live-badge');
+  const elTitle = $('gas-live-title');
+  const elTimer = $('gas-live-timer');
+  const elPill = $('hud-gas-pill');
+
+  if (!s.isProcessing) {
+    if (elInd) elInd.className = 'live-gas-indicator gas-steady';
+    if (elBadge) elBadge.textContent = '⏸️ 공정 대기 (IDLE)';
+    if (elTitle) elTitle.textContent = '상단 [⚡ 10매 연속 가공]을 클릭하여 에칭을 시작하세요';
+    if (elTimer) elTimer.textContent = 'STANDBY';
+    if (elPill) {
+      elPill.textContent = 'READY';
+      elPill.className = 'hud-gas-pill ar';
+    }
+    return;
+  }
+
+  if (s.boschMode) {
+    const isPass = s.boschPhase === 'pass';
+    const remain = (s.phaseRemain !== undefined ? s.phaseRemain : 0).toFixed(1);
+    const flowSccm = isPass ? '385.0' : '817.2';
+    const flowPa = isPass ? '0.65' : '1.38';
+
+    if (isPass) {
+      if (elInd) elInd.className = 'live-gas-indicator gas-c4f8';
+      if (elBadge) elBadge.textContent = '🛡️ C₄F₈ 보호막 (PASSIVATION)';
+      if (elTitle) elTitle.textContent = `${flowSccm} sccm (${flowPa} Pa·m³/s) · 측벽 폴리머 코팅`;
+      if (elTimer) elTimer.textContent = `${remain}s`;
+      if (elPill) {
+        elPill.textContent = 'C₄F₈';
+        elPill.className = 'hud-gas-pill c4f8';
+      }
+    } else {
+      if (elInd) elInd.className = 'live-gas-indicator gas-sf6';
+      if (elBadge) elBadge.textContent = '⚡ SF₆ 식각 (ETCH STEP)';
+      if (elTitle) elTitle.textContent = `${flowSccm} sccm (${flowPa} Pa·m³/s) · Si 식각 플라즈마`;
+      if (elTimer) elTimer.textContent = `${remain}s`;
+      if (elPill) {
+        elPill.textContent = 'SF₆';
+        elPill.className = 'hud-gas-pill sf6';
+      }
+    }
+  } else {
+    if (elInd) elInd.className = 'live-gas-indicator gas-steady';
+    const qActual = ch.qMfc + ch.mfcOffset;
+    const sccm = (qActual * 592.2).toFixed(1);
+    if (elBadge) elBadge.textContent = '⚖️ 정속 정상상태 (Ar)';
+    if (elTitle) elTitle.textContent = `${sccm} sccm · 플라즈마 방전 안정화`;
+    if (elTimer) elTimer.textContent = 'STEADY';
+    if (elPill) {
+      elPill.textContent = 'Ar';
+      elPill.className = 'hud-gas-pill ar';
+    }
+  }
+}
+
 // ---------------------------------------------------------------- 메인 루프
 let last = performance.now();
 function frame(now) {
@@ -140,9 +713,22 @@ function frame(now) {
   let s;
   for (let i = 0; i < SUBSTEPS; i++) s = ch.step(DT);
   if (rorState.active) rorTick(s);
-  updateGauges(s); animateSvg(s, dtReal);
-  trPress.push(s.t, paToMtorr(s.P)); trTheta.push(s.t, (s.theta * 180) / Math.PI);
-  trSeff.push(s.t, m3sToLps(s.sEff));
+  updateGauges(s);
+  updateGasIndicator(s);
+  if (currentViewMode === '2d') {
+    animateSvg(s, dtReal);
+  } else {
+    update3dHud(s);
+  }
+  if (window.Chamber3D) {
+    window.Chamber3D.update(s, dtReal);
+  }
+  const valPress = s.isProcessing ? paToMtorr(s.P) : 0;
+  const valTheta = s.isProcessing ? (s.theta * 180) / Math.PI : 0;
+  const valSeff = s.isProcessing ? m3sToLps(s.sEff) : 0;
+  trPress.push(s.t, valPress);
+  trTheta.push(s.t, valTheta);
+  trSeff.push(s.t, valSeff);
   trPress.draw(faultMarks); trTheta.draw(faultMarks); trSeff.draw(faultMarks);
   requestAnimationFrame(frame);
 }
@@ -216,6 +802,16 @@ document.querySelectorAll('.scen-card').forEach((card) => {
     card.classList.add('on'); scenarios[card.dataset.scen]();
   });
 });
+
+const scenParam = urlParams.get('scen');
+if (scenParam && scenarios[scenParam]) {
+  const card = document.querySelector(`.scen-card[data-scen="${scenParam}"]`);
+  if (card) {
+    document.querySelectorAll('.scen-card').forEach((c) => c.classList.remove('on'));
+    card.classList.add('on');
+  }
+  setTimeout(() => scenarios[scenParam](), 200);
+}
 
 // ---------------------------------------------------------------- RoR 진단
 // 게이트 폐쇄 후 V·dP/dt = Q_total. 적분형으로 적합해 실누설과 아웃가싱을 분리한다.

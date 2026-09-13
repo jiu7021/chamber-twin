@@ -18,7 +18,9 @@ window.scrollTo(0, 0);
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=36">
+<!-- Three.js (r128) Local -->
+<script src="three.min.js"></script>
 </head>
 <body>
 
@@ -98,15 +100,98 @@ window.scrollTo(0, 0);
         <div class="panel-head">
           <h2>챔버 배기계 도식 &amp; 실시간 물리 계측</h2>
           <div class="head-status-pills">
-            <span class="hud-pill"><span class="pulse-dot"></span>실시간 물리 트윈</span>
+            <!-- 10매 로트 실행 마스터 제어 바 (상단 전진 배치) -->
+            <div class="lot-top-controls" id="lot-top-controls">
+              <button type="button" class="btn-top-lot btn-top-run pulse" id="btn-top-lot-run" title="10매 연속 가공 자동 실행">
+                <span class="btn-icon">⚡</span> 10매 연속 가공
+              </button>
+              <button type="button" class="btn-top-lot" id="btn-top-wafer-next" title="웨이퍼 1매 수동 가공">
+                ▶ 다음 웨이퍼 (+1매)
+              </button>
+              <button type="button" class="btn-top-lot btn-top-clean" id="btn-top-chamber-clean" title="챔버 내벽 세정 및 리셋">
+                🧼 챔버 세정
+              </button>
+            </div>
+            <div class="mode-toggle-group">
+              <button type="button" class="mode-btn on" id="btn-mode-bosch">⚡ 보쉬 DRIE</button>
+              <button type="button" class="mode-btn" id="btn-mode-steady">⚖️ 정속 Ar</button>
+            </div>
             <span class="hud-pill cyan">APC Closed-Loop</span>
           </div>
         </div>
 
         <div class="overview-grid">
-          <!-- 좌측: 대형 진공 배기계 시각화 다이어그램 (2.5배 확대, 시원한 렌더링) -->
+          <!-- 좌측: 대형 진공 배기계 시각화 (3D 트윈 & 2D 계통도 원클릭 토글) -->
           <div class="schematic-viewport">
-                        <svg id="chamber-svg" viewBox="0 0 460 304" role="img" aria-label="챔버 배기계 도식">
+            <div class="schematic-top-bar">
+              <div class="schematic-title-tag"><span class="view-dot"></span>진공 배기계 시각화</div>
+              <!-- 실시간 가스 스위칭 고시인성 네온 인디케이터 (3D & 2D 공통) -->
+              <div class="live-gas-indicator gas-steady" id="live-gas-indicator">
+                <span class="live-gas-dot"></span>
+                <span class="gas-live-badge font-mono" id="gas-live-badge">⚖️ Ar 정상상태</span>
+                <span class="gas-live-title" id="gas-live-title">592.2 sccm · 공급 중</span>
+                <span class="live-gas-timer font-mono" id="gas-live-timer">STEADY</span>
+              </div>
+              <div class="view-toggle-pills">
+                <button type="button" class="v-pill on" id="btn-view-3d">3D 트윈 뷰</button>
+                <button type="button" class="v-pill" id="btn-view-2d">2D 계통도</button>
+              </div>
+            </div>
+
+            <!-- 3D 인터랙티브 트윈 뷰포트 -->
+            <div id="chamber-3d-wrap" class="chamber-3d-wrap">
+              <div class="orbit-hint-bar">
+                <span>🖱️ 드래그 360° 회전 · 휠/핀치 줌</span>
+                <button type="button" class="orbit-reset-btn" id="btn-3d-reset">뷰 리셋</button>
+              </div>
+
+              <!-- [HUD 1] 가스 유입 (MFC) (좌측 상단) -->
+              <div class="hud-3d-card hud-3d-mfc">
+                <div class="hud-3d-head"><span class="hud-dot green" id="hud-3d-mfc-dot"></span>가스 유입 (MFC)<span class="hud-gas-pill ar" id="hud-gas-pill">Ar</span></div>
+                <div class="hud-3d-val font-mono"><span id="hud-3d-mfc-val">592.2</span> <span class="hud-unit">sccm</span></div>
+                <div class="hud-3d-sub" id="hud-3d-mfc-sub">Ar 1.00 Pa·m³/s (공급 중)</div>
+              </div>
+
+              <!-- [HUD 2] 반도체 식각 챔버 & 실시간 압력 (우측 상단) -->
+              <div class="hud-3d-card hud-3d-chamber">
+                <div class="hud-3d-head"><span class="hud-dot glow"></span>식각 챔버 본체 (Chamber)</div>
+                <div class="hud-3d-hero font-mono"><span id="hud-3d-press">40.00</span> <span class="hud-unit">mTorr</span></div>
+                <div class="hud-3d-sub"><span id="hud-3d-regime">중간류</span> (Kn <span id="hud-3d-kn">0.041</span>) · 200mm 웨이퍼</div>
+              </div>
+
+              <!-- [HUD 3] 스로틀 밸브 (APC) (우측 중앙) -->
+              <div class="hud-3d-card hud-3d-valve">
+                <div class="hud-3d-head"><span class="hud-dot cyan"></span>스로틀 밸브 (APC)</div>
+                <div class="hud-3d-val font-mono">θ = <span id="hud-3d-theta">26.8</span>°</div>
+                <div class="hud-3d-sub">개도율 <span id="hud-3d-open">29.7</span>% · PID 제어 중</div>
+              </div>
+
+              <!-- [HUD 4] 터보분자펌프 (TMP) (좌측 하단) -->
+              <div class="hud-3d-card hud-3d-tmp">
+                <div class="hud-3d-head"><span class="hud-dot blue"></span>터보분자펌프 (TMP)</div>
+                <div class="hud-3d-val font-mono">S<sub>eff</sub> = <span id="hud-3d-seff">140.0</span> <span class="hud-unit">L/s</span></div>
+                <div class="hud-3d-sub">정격 <span id="hud-3d-pump-pct">100</span>% · 90,000 RPM (회전 중)</div>
+              </div>
+
+              <!-- [HUD 5] 포어라인 배관 & 드라이 러핑펌프 (우측 하단) -->
+              <div class="hud-3d-card hud-3d-foreline">
+                <div class="hud-3d-head"><span class="hud-dot orange"></span>포어라인 & 드라이펌프</div>
+                <div class="hud-3d-val font-mono">P<sub>fore</sub> ≈ <span id="hud-3d-pfore">100</span> <span class="hud-unit">mTorr</span></div>
+                <div class="hud-3d-sub">→ 2차 드라이 러핑펌프 (백킹 배기)</div>
+              </div>
+
+              <!-- [HUD 6] 실시간 누설 감지 경보 (고장 시) -->
+              <div class="hud-3d-alert hidden" id="hud-3d-leak">
+                <span class="hud-alert-icon">⚠️</span>
+                <div>
+                  <div class="hud-alert-title">진공 누설 감지 (Q_leak)</div>
+                  <div class="hud-alert-val font-mono" id="hud-3d-leak-val">0.120 Pa·m³/s</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2D P&ID 계통도 (토글 시 전환) -->
+            <svg id="chamber-svg" viewBox="0 0 460 304" role="img" aria-label="챔버 배기계 도식" style="display: none;">
               <!-- 가스 유입 (MFC) -->
               <rect x="12" y="24" width="94" height="20" rx="4" class="mfc-badge-bg"/>
               <text x="59" y="38" class="lbl mid bold">가스 유입 (MFC)</text>
@@ -239,6 +324,94 @@ window.scrollTo(0, 0);
         </div>
       </section>
 
+      <!-- ─── 2.5구역: 10매 로트(Lot) 가공 시퀀스 & W2W 실시간 식각 깊이 가상계측 (VM) ─── -->
+      <section class="panel" id="s-lot-vm">
+        <div class="panel-head">
+          <div class="panel-head-left">
+            <h2>10매 로트(Lot) 가공 &amp; W2W 식각 깊이 가상계측 (VM)</h2>
+            <span class="badge warn" id="badge-lot-status">로트 진행 중 · 웨이퍼 오염 누적</span>
+          </div>
+          <div class="lot-actions">
+            <button type="button" class="btn-lot-action" id="btn-wafer-next">▶ 다음 웨이퍼 (+1매)</button>
+            <button type="button" class="btn-lot-action auto" id="btn-lot-auto">⚡ 10매 연속 가공</button>
+            <button type="button" class="btn-lot-action clean" id="btn-chamber-clean">🧼 챔버 세정 (Clean &amp; Reset)</button>
+          </div>
+        </div>
+
+        <!-- 실측 10개 로트 (총 96매 2개월 시계열) 선택 내비게이션 -->
+        <div class="lot-selector-bar">
+          <span class="lot-sel-label">실측 로트 선택 (Zenodo 96매 시계열):</span>
+          <div class="lot-pills-row" id="lot-pills">
+            <button type="button" class="lot-pill active" data-lot="1">LOT 1 (7/02)</button>
+            <button type="button" class="lot-pill" data-lot="2">LOT 2 (7/03)</button>
+            <button type="button" class="lot-pill" data-lot="3">LOT 3 (7/08)</button>
+            <button type="button" class="lot-pill" data-lot="4">LOT 4 (7/16)</button>
+            <button type="button" class="lot-pill" data-lot="5">LOT 5 (7/22)</button>
+            <button type="button" class="lot-pill" data-lot="6">LOT 6 (7/25)</button>
+            <button type="button" class="lot-pill" data-lot="7">LOT 7 (8/01)</button>
+            <button type="button" class="lot-pill" data-lot="8">LOT 8 (8/07)</button>
+            <button type="button" class="lot-pill" data-lot="9">LOT 9 (8/14)</button>
+            <button type="button" class="lot-pill" data-lot="10">LOT 10 (8/22)</button>
+          </div>
+        </div>
+
+        <div class="lot-vm-grid">
+          <!-- 좌측: 웨이퍼 순번 트래커 & 톱니 스파크라인 -->
+          <div class="lot-tracker-card">
+            <div class="tracker-head">
+              <div class="tracker-title-wrap">
+                <span class="tracker-title" id="lot-title-text">로트 웨이퍼 순번 · LOT #1 (2024-07-02)</span>
+                <span class="tracker-key-badge font-mono" id="lot-exp-key">EXP: 2024-07-02_01</span>
+              </div>
+              <span class="tracker-curr font-mono" id="lot-wafer-text">WAFER #1 / 10</span>
+            </div>
+            <!-- 10개 웨이퍼 알약 -->
+            <div class="wafer-pills-row" id="wafer-pills">
+              <span class="wf-pill active">#1</span>
+              <span class="wf-pill">#2</span>
+              <span class="wf-pill">#3</span>
+              <span class="wf-pill">#4</span>
+              <span class="wf-pill">#5</span>
+              <span class="wf-pill">#6</span>
+              <span class="wf-pill">#7</span>
+              <span class="wf-pill">#8</span>
+              <span class="wf-pill">#9</span>
+              <span class="wf-pill">#10</span>
+            </div>
+            <!-- W2W 실시간 톱니 차트 -->
+            <div class="sawtooth-wrap">
+              <div class="saw-head">
+                <span class="saw-lab">식각 깊이 W2W 톱니 프로파일 (Zenodo 실측 벤치마크)</span>
+                <span class="saw-val font-mono" id="saw-depth-val">100.00 %</span>
+              </div>
+              <canvas id="c-lot-sawtooth" height="64"></canvas>
+            </div>
+          </div>
+
+          <!-- 우측: 3대 가상계측 KPI 카드 -->
+          <div class="lot-kpi-grid">
+            <div class="lot-kpi-card">
+              <span class="l-lab">실측 식각 깊이 (Etch Depth)</span>
+              <div class="l-val bad font-mono">
+                <span id="vm-depth-um">44.29</span> <span class="l-unit">µm</span>
+                <span class="l-pct-badge" id="vm-depth-pct">100.00%</span>
+              </div>
+              <div class="l-sub bad" id="vm-depth-delta">기준 원점 (신규 로트)</div>
+            </div>
+            <div class="lot-kpi-card">
+              <span class="l-lab">밸브각 표류 (θ Drift)</span>
+              <div class="l-val cyan font-mono">+<span id="vm-drift">0.00</span> <span class="l-unit">deg</span></div>
+              <div class="l-sub" id="vm-drift-sub">기준 26.77° 대비 고장 보상 흡수</div>
+            </div>
+            <div class="lot-kpi-card">
+              <span class="l-lab">OES 원자 불소(F 703nm)</span>
+              <div class="l-val font-mono"><span id="vm-oes">100.0</span> <span class="l-unit">%</span></div>
+              <div class="l-sub" id="vm-oes-sub">순번 편상관 r = +0.42 감쇠 추적</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ─── 3구역: 검증 시나리오 4열 와이드 가로배치 (사용자 요청: 공정제어 위로 이동!) ─── -->
       <section class="panel" id="s-scenario">
         <div class="panel-head"><h2>검증 시나리오 — 원클릭 즉시 확인</h2></div>
@@ -346,7 +519,9 @@ window.scrollTo(0, 0);
 </div>
 </div>
 
-<script src="ui.js?v=28"></script>
-<script type="module" src="app.js?v=28"></script>
+<script src="lot_data.js?v=37"></script>
+<script src="chamber3d.js?v=37"></script>
+<script src="ui.js?v=37"></script>
+<script type="module" src="app.js?v=37"></script>
 </body>
 </html>

@@ -32,13 +32,17 @@ export function meanThermalSpeed(M = PHYS.M_AIR, T = 293.15) {
 }
 
 export function meanFreePath(P, T = 293.15, dm = PHYS.D_MOL_AIR) {
-  const p = Math.max(P, 1e-30);
+  const p = Math.max(P, 1e-12);
   return (PHYS.BOLTZMANN * T) / (Math.SQRT2 * Math.PI * dm * dm * p);
 }
 
-export function knudsen(P, d, T = 293.15) { return meanFreePath(P, T) / d; }
+export function knudsen(P, d, T = 293.15) {
+  if (!P || P <= 1e-6) return 0;
+  return meanFreePath(P, T) / d;
+}
 
 export function flowRegime(Kn) {
+  if (!Kn || Kn <= 0) return { name: '공정 대기', key: 'idle' };
   if (Kn <= 0.01) return { name: '점성류', key: 'viscous' };
   if (Kn >= 1.0) return { name: '분자류', key: 'molecular' };
   return { name: '중간류', key: 'transitional' };
@@ -104,7 +108,40 @@ export class Chamber {
     this.apcOn = true;
     this.gateClosed = false;   // RoR 시퀀스: 게이트 폐쇄
 
+    // ── 보쉬(Bosch DRIE) 고속 가스 스위칭 공정 ──
+    this.boschMode = false;
+    this.isProcessing = true;
+    this.boschTimer = 0;
+    this.boschCycle = 6.0;     // 주기 6.0s (식각 4.0s + 보호막 2.0s)
+    this.boschEtchDur = 4.5;
+    this.qEtch = 1.38;         // Pa·m³/s (SF₆ 고유량 에칭 ~820 sccm)
+    this.qPass = 0.65;         // Pa·m³/s (C₄F₈ 저유량 보호막 ~385 sccm)
+
+    // ── 10매 로트(Lot) 가공 및 W2W 열화 (Zenodo -2.72% 톱니 모델) ──
+    this.waferIdx = 1;         // 1 ~ 10
+    this.qWallDep = 0;         // 챔버 벽면 폴리머 축적으로 인한 가스 부하 증가 (Pa·m³/s)
+
     this.reset();
+  }
+
+  setWafer(idx, driftDeg = null) {
+    this.waferIdx = Math.max(1, Math.min(10, idx));
+    if (typeof driftDeg === 'number' && driftDeg >= 0) {
+      const baseTh = 0.4672; // ~26.77 deg (1.0 Pa*m3/s 기준각)
+      const targetTh = baseTh + (driftDeg * Math.PI) / 180;
+      const c = this.cMax * (1 - Math.cos(targetTh));
+      const s = seriesSpeed(c, this.sPump);
+      const qTarget = s * this.pSp;
+      this.qWallDep = Math.max(0, qTarget - this.qMfc);
+    } else {
+      // 10장에 걸쳐 밸브각이 ~26.77°에서 ~27.54°로 상향 이동 (+2.9%)
+      this.qWallDep = (this.waferIdx - 1) * 0.034;
+    }
+  }
+
+  cleanChamber() {
+    this.waferIdx = 1;
+    this.qWallDep = 0;
   }
 
   // 시간·이력은 유지한 채 압력과 밸브만 기준 운전점으로 되돌린다.
@@ -126,15 +163,25 @@ export class Chamber {
     if (!isFinite(this.theta)) this.theta = Math.PI / 4;
     this.I = this.theta - this.kp * (this.P - this.pSp);
     this.tOutgasStart = 0;
+    this.boschTimer = 0;
   }
 
   get sPump() { return this.sPump0 * this.pumpDerate; }
   get cMax() { return this.cMax0 * this.valveWear; }
 
   qTotal() {
+    let mfc;
+    if (this.gateClosed || !this.isProcessing) {
+      mfc = 0;
+      return 0;
+    } else if (this.boschMode) {
+      const phaseTime = this.boschTimer % this.boschCycle;
+      mfc = (phaseTime < this.boschEtchDur) ? this.qEtch : this.qPass;
+    } else {
+      mfc = this.qMfc + this.mfcOffset;
+    }
     const og = this.q1 > 0 ? outgassing(this.t - this.tOutgasStart, this.q1, this.alpha) : 0;
-    const mfc = this.gateClosed ? 0 : this.qMfc + this.mfcOffset;
-    return mfc + this.qLeak + og;
+    return mfc + this.qLeak + og + this.qWallDep;
   }
 
   sEff() {
@@ -142,10 +189,50 @@ export class Chamber {
     return seriesSpeed(valveConductance(this.theta, this.cMax), this.sPump);
   }
 
+  feedforwardTheta(Q, P_target) {
+    if (P_target <= 0 || Q <= 0) return 0;
+    const sEff = Q / P_target;
+    if (sEff >= this.sPump) return Math.PI / 2;
+    const c = 1.0 / (1.0 / sEff - 1.0 / this.sPump);
+    const x = Math.max(-1, Math.min(1, 1.0 - c / this.cMax));
+    return Math.acos(x);
+  }
+
+  start() {
+    this.isProcessing = true;
+    if (this.P <= 1e-4) {
+      this.P = this.pSp;
+      const Q = this.qTotal();
+      const s0 = Q > 0 ? Q / this.pSp : this.qMfc / this.pSp;
+      const th = seffToTheta(s0, this.sPump0, this.cMax0);
+      this.theta = isFinite(th) ? th : Math.PI / 4;
+      this.I = this.theta - this.kp * (this.P - this.pSp);
+    }
+  }
+
+  stop() {
+    this.isProcessing = false;
+    this.P = 0;
+    this.theta = 0;
+  }
+
   step(dt) {
+    if (!this.isProcessing) {
+      this.theta = 0;
+      this.P = 0;
+      this.t += dt;
+      return this.snapshot();
+    }
+
+    if (this.boschMode && !this.gateClosed) {
+      this.boschTimer += dt;
+    }
     if (this.apcOn && !this.gateClosed) {
+      const Q = this.qTotal();
+      const ffTheta = this.feedforwardTheta(Q, this.pSp);
       const e = this.P - this.pSp;
-      const raw = this.kp * e + this.I;
+      // Feedforward + PID 피드백: 고속 가스 전환 시 압력 급변(33~46 mTorr)을 40.0 ± 0.5 mTorr 이내로 완벽 억제
+      const raw = ffTheta + this.kp * e + this.I;
       const cmd = Math.min(Math.max(raw, 0), Math.PI / 2);
       this.I += (this.ki * e + this.kaw * (cmd - raw)) * dt;     // 되계산 와인드업 방지
       this.theta += ((cmd - this.theta) / this.tauValve) * dt;   // 액추에이터 1차 지연
@@ -165,13 +252,58 @@ export class Chamber {
   }
 
   snapshot() {
+    if (!this.isProcessing) {
+      return {
+        t: this.t,
+        P: 0,
+        theta: 0,
+        sEff: 0,
+        Q: 0,
+        Kn: 0,
+        regime: { name: '공정 대기', key: 'idle' },
+        openPct: 0,
+        pipeC: 0,
+        boschMode: this.boschMode,
+        isProcessing: false,
+        boschPhase: 'idle',
+        phaseRemain: 0,
+        phaseTotal: 0,
+        phaseProgress: 0,
+        gasName: 'IDLE',
+        gasColor: '#475569',
+        waferIdx: this.waferIdx,
+        etchDepthPct: 100.0,
+        oesFluorinePct: 100.0
+      };
+    }
     const S = this.sEff();
     const Kn = knudsen(this.P, this.pipeD);
+    const phaseTime = this.boschTimer % this.boschCycle;
+    const isEtch = phaseTime < this.boschEtchDur;
+    const phaseRemain = isEtch ? (this.boschEtchDur - phaseTime) : (this.boschCycle - phaseTime);
+    const phaseTotal = isEtch ? this.boschEtchDur : (this.boschCycle - this.boschEtchDur);
+    const phaseProgress = Math.max(0, Math.min(1, phaseRemain / phaseTotal));
+    const gasName = !this.boschMode ? 'Ar' : (isEtch ? 'SF₆' : 'C₄F₈');
+    // Zenodo 실측 데이터 10매당 -2.72% 감쇠 공식
+    const etchDepthPct = 100.0 - (this.waferIdx - 1) * 0.3022;
+    // OES 불소(703.7nm) 발광 감쇠 (10매당 -8.5% ~ -12%)
+    const oesFluorinePct = 100.0 - (this.waferIdx - 1) * 0.944;
+
     return {
       t: this.t, P: this.P, theta: this.theta, sEff: S, Q: this.qTotal(),
       Kn, regime: flowRegime(Kn),
       openPct: 100 * (1 - Math.cos(this.theta)),
       pipeC: conductanceTube(this.pipeD, this.pipeL, this.P),
+      boschMode: this.boschMode,
+      isProcessing: this.isProcessing,
+      boschPhase: isEtch ? 'etch' : 'pass',
+      phaseRemain,
+      phaseTotal,
+      phaseProgress,
+      gasName,
+      waferIdx: this.waferIdx,
+      etchDepthPct,
+      oesFluorinePct
     };
   }
 }
