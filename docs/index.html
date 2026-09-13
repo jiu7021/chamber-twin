@@ -18,7 +18,7 @@ window.scrollTo(0, 0);
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=36">
+<link rel="stylesheet" href="style.css?v=45">
 <!-- Three.js (r128) Local -->
 <script src="three.min.js"></script>
 </head>
@@ -390,22 +390,27 @@ window.scrollTo(0, 0);
                   <div class="h-meter-foot font-mono">가스 유입 부하 (SF₆ 1.38 ↔ C₄F₈ 0.65)</div>
                 </div>
 
-                <!-- 막대 4: Knudsen 수 & 유동 영역 -->
+                <!-- 막대 4: 챔버 내벽 오염도 (Wall Clog) & 세정 마진 (기존 배관 크누센 대체) -->
                 <div class="h-meter-item">
                   <div class="h-meter-meta">
-                    <span class="h-meter-lab">Knudsen 수 (배관)</span>
+                    <span class="h-meter-lab">챔버 내벽 오염도 (Wall Clog)</span>
                     <div class="h-meter-val-wrap">
-                      <span class="h-meter-val font-mono" id="g-kn">0.000</span>
-                      <span class="h-meter-regime" id="g-regime">공정 대기</span>
+                      <span class="h-meter-val font-mono" id="g-clog">0.0%</span>
+                      <span class="h-meter-badge ok" id="g-clog-badge">CLEAN</span>
+                      <!-- 하위 호환성 보존용 히든 태그 -->
+                      <span id="g-kn" style="display:none;">0.000</span>
+                      <span id="g-regime" style="display:none;">중간류</span>
                     </div>
                   </div>
-                  <div class="h-meter-track kn-track">
-                    <div class="kn-zone viscous" title="점성류 (Kn < 0.01)">점성</div>
-                    <div class="kn-zone trans" title="중간류 (0.01 ~ 1.0)">중간류</div>
-                    <div class="kn-zone molecular" title="분자류 (Kn > 1.0)">분자</div>
-                    <div class="kn-marker" id="kn-marker" style="left: 0%;"></div>
+                  <div class="h-meter-track clog-track">
+                    <div class="clog-safe-zone" title="정상 운전 마진 (0~60%)"></div>
+                    <div class="clog-warn-tick" title="WAC 세정 권고 경계 (75%)"></div>
+                    <div class="h-meter-fill clog-fill" id="bar-fill-clog" style="width: 0%;"></div>
                   </div>
-                  <div class="h-meter-foot font-mono">경과 시간: <span id="g-time">0.0</span> s</div>
+                  <div class="h-meter-foot font-mono">
+                    <span>세정 여유도: <b id="g-clog-margin" style="color:var(--neon-cyan)">100%</b></span>
+                    <span style="float: right;">경과 시간: <span id="g-time">0.0</span> s</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -633,9 +638,74 @@ window.scrollTo(0, 0);
 </div>
 </div>
 
-<script src="lot_data.js?v=37"></script>
-<script src="chamber3d.js?v=37"></script>
-<script src="ui.js?v=37"></script>
-<script type="module" src="app.js?v=37"></script>
+<!-- 플로팅 팹 알람 관제 콘솔 (Floating FDC Console) -->
+<aside class="fab-console is-closed" id="fab-console">
+  <div class="fc-head">
+    <div class="fc-title-group">
+      <span class="fc-pulse" id="fc-pulse"></span>
+      <b class="fc-title">실시간 팹 FDC 관제 콘솔</b>
+      <span class="fc-cnt-badge font-mono" id="fc-cnt">0</span>
+    </div>
+    <div class="fc-ctrl-group">
+      <button type="button" id="fab-min-btn" class="fc-ctrl-btn" title="최소화">—</button>
+      <button type="button" id="fab-close-btn" class="fc-ctrl-btn" title="닫기">✕</button>
+    </div>
+  </div>
+
+  <!-- 3단계 빠른 상태 요약 HUD -->
+  <div class="fc-hud">
+    <div class="fc-hud-box crit" data-f="crit" title="설비 인터락 및 이상 누설">
+      <b class="fc-hud-num font-mono" id="fc-crit">0</b>
+      <span class="fc-hud-lbl">🔴 설비이상</span>
+    </div>
+    <div class="fc-hud-box warn" data-f="warn" title="챔버 오염 누적 및 세정 권고">
+      <b class="fc-hud-num font-mono" id="fc-warn">0</b>
+      <span class="fc-hud-lbl">🟡 세정권고</span>
+    </div>
+    <div class="fc-hud-box auto" data-f="auto" title="APC Closed-Loop 실시간 밸브 보정">
+      <b class="fc-hud-num font-mono" id="fc-auto">0</b>
+      <span class="fc-hud-lbl">⚡ APC보정</span>
+    </div>
+  </div>
+
+  <!-- 필터 탭 -->
+  <div class="fc-filter-bar">
+    <button type="button" class="fc-tab on" data-f="all">전체</button>
+    <button type="button" class="fc-tab" data-f="warn">세정권고</button>
+    <button type="button" class="fc-tab" data-f="auto">APC보정</button>
+    <button type="button" class="fc-tab" data-f="crit">설비이상</button>
+  </div>
+
+  <!-- 알람 목록 본문 (고우선순위 상단 고정 + 하단 실시간 스트림) -->
+  <div class="fc-body" id="fc-body">
+    <div class="fc-sec-header">
+      <span class="fc-sec-dot warn"></span>
+      <span class="fc-sec-title">우선 조치 권고 (PRIORITY ALARM)</span>
+    </div>
+    <div id="console-pinned" class="fc-pinned-list">
+      <div class="fc-pinned-empty" id="fc-pinned-empty">현재 긴급 세정 권고 없음 (챔버 내벽 정상)</div>
+    </div>
+
+    <div class="fc-sec-header fc-stream-header">
+      <span class="fc-sec-dot auto"></span>
+      <span class="fc-sec-title">실시간 APC 밸브 제어 스트림 (STREAM)</span>
+    </div>
+    <div id="console-feed" class="fc-feed-list">
+      <div class="fc-feed-empty" id="fc-feed-empty">가공 시작 시 실시간 밸브 보정 내역이 수신됩니다.</div>
+    </div>
+  </div>
+</aside>
+
+<!-- 플로팅 런처 알약 배지 (콘솔 최소화 시 우측 하단에 표시) -->
+<button type="button" class="fab-launcher" id="fab-launcher" title="실시간 알람 관제창 열기">
+  <span class="fab-launcher-dot" id="fab-launcher-dot"></span>
+  <span class="fab-launcher-title">실시간 팹 관제</span>
+  <span class="fab-launcher-badge font-mono" id="fab-badge">정상 (0)</span>
+</button>
+
+<script src="lot_data.js?v=47"></script>
+<script src="chamber3d.js?v=47"></script>
+<script src="ui.js?v=47"></script>
+<script type="module" src="app.js?v=47"></script>
 </body>
 </html>

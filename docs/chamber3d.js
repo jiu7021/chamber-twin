@@ -35,8 +35,8 @@
   let prevMouseX = 0, prevMouseY = 0;
   let rotX = 0.18, rotY = -0.45;
   let targetRotX = 0.18, targetRotY = -0.45;
-  let zoomDist = 16.5;
-  let targetZoomDist = 16.5;
+  let zoomDist = 23.5;
+  let targetZoomDist = 23.5;
   let initialPinchDist = 0;
 
   function init(containerId) {
@@ -60,7 +60,7 @@
       const width = container.clientWidth || 460;
       const height = container.clientHeight || 340;
       camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
-      camera.position.set(0.4, -0.2, zoomDist);
+      camera.position.set(0.7, -0.1, zoomDist);
 
       // 2. Renderer Setup
       renderer = new THREE.WebGLRenderer({
@@ -468,7 +468,7 @@
       if (!isActive) return;
       e.preventDefault();
       targetZoomDist += e.deltaY * 0.012;
-      targetZoomDist = Math.max(9, Math.min(22, targetZoomDist));
+      targetZoomDist = Math.max(10, Math.min(28, targetZoomDist));
     }, { passive: false });
 
     // 터치 1손가락 회전 & 2손가락 핀치 줌 (iPad 지원)
@@ -504,7 +504,7 @@
         );
         const pinchDelta = initialPinchDist - currentDist;
         targetZoomDist += pinchDelta * 0.02;
-        targetZoomDist = Math.max(9, Math.min(22, targetZoomDist));
+        targetZoomDist = Math.max(10, Math.min(28, targetZoomDist));
         initialPinchDist = currentDist;
       }
     }, { passive: true });
@@ -518,7 +518,7 @@
     canvas.addEventListener('dblclick', () => {
       targetRotX = 0.18;
       targetRotY = -0.45;
-      targetZoomDist = 14.5;
+      targetZoomDist = 23.5;
     });
   }
 
@@ -684,7 +684,7 @@
   function resetView() {
     targetRotX = 0.18;
     targetRotY = -0.45;
-    targetZoomDist = 16.5;
+    targetZoomDist = 23.5;
   }
 
   window.Chamber3D = {

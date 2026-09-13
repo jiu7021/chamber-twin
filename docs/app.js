@@ -119,6 +119,224 @@ function animateSvg(s, dtReal) {
   $('plasma').style.opacity = ch.gateClosed ? 0.25 : 1;
 }
 
+// ---------------------------------------------------------------- FDC 알람 관제 콘솔 엔진 (CMP & P-T 스타일 헤리티지)
+const fdcState = {
+  filter: 'all',
+  critCount: 0,
+  warnCount: 0,
+  autoCount: 0,
+  pmAlarmActive: false,
+  leakAlarmActive: false,
+  lastPhase: '',
+  feedLogs: [],
+};
+
+function initFdcConsole() {
+  const consoleEl = $('fab-console');
+  const launcherEl = $('fab-launcher');
+  const btnMin = $('fab-min-btn');
+  const btnClose = $('fab-close-btn');
+
+  const openConsole = () => {
+    if (consoleEl) consoleEl.classList.remove('is-closed');
+    if (launcherEl) launcherEl.classList.add('is-hidden');
+  };
+  const closeConsole = () => {
+    if (consoleEl) consoleEl.classList.add('is-closed');
+    if (launcherEl) launcherEl.classList.remove('is-hidden');
+  };
+
+  if (btnMin) btnMin.addEventListener('click', closeConsole);
+  if (btnClose) btnClose.addEventListener('click', closeConsole);
+  if (launcherEl) launcherEl.addEventListener('click', openConsole);
+
+  // HUD & 필터 탭 클릭 이벤트
+  document.querySelectorAll('.fc-hud-box').forEach((box) => {
+    box.addEventListener('click', () => {
+      const filter = box.getAttribute('data-f');
+      setFdcFilter(filter);
+    });
+  });
+
+  document.querySelectorAll('.fc-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const filter = tab.getAttribute('data-f');
+      setFdcFilter(filter);
+    });
+  });
+
+  renderFdcHud();
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('console') === 'open') {
+    openConsole();
+  }
+}
+
+function setFdcFilter(f) {
+  fdcState.filter = f;
+  document.querySelectorAll('.fc-tab').forEach((t) => {
+    t.classList.toggle('on', t.getAttribute('data-f') === f);
+  });
+  renderFdcFeed();
+}
+
+function renderFdcHud() {
+  const elCrit = $('fc-crit');
+  const elWarn = $('fc-warn');
+  const elAuto = $('fc-auto');
+  const elCnt = $('fc-cnt');
+  const elPulse = $('fc-pulse');
+  const elLauncherDot = $('fab-launcher-dot');
+  const elLauncherBadge = $('fab-badge');
+
+  if (elCrit) elCrit.textContent = fdcState.critCount;
+  if (elWarn) elWarn.textContent = fdcState.warnCount;
+  if (elAuto) elAuto.textContent = fdcState.autoCount;
+  const totalActive = fdcState.critCount + fdcState.warnCount;
+  if (elCnt) elCnt.textContent = totalActive;
+
+  if (elPulse) {
+    if (fdcState.critCount > 0) {
+      elPulse.className = 'fc-pulse crit';
+    } else if (fdcState.warnCount > 0) {
+      elPulse.className = 'fc-pulse warn';
+    } else {
+      elPulse.className = 'fc-pulse';
+    }
+  }
+
+  if (elLauncherDot) {
+    elLauncherDot.className = (fdcState.critCount > 0 || fdcState.warnCount > 0) ? 'fab-launcher-dot warn' : 'fab-launcher-dot';
+  }
+  if (elLauncherBadge) {
+    if (fdcState.critCount > 0) {
+      elLauncherBadge.textContent = `설비이상 (${fdcState.critCount})`;
+      elLauncherBadge.style.color = '#ff453a';
+    } else if (fdcState.warnCount > 0) {
+      elLauncherBadge.textContent = `세정권고 (${fdcState.warnCount})`;
+      elLauncherBadge.style.color = '#ff9f0a';
+    } else {
+      elLauncherBadge.textContent = `정상 (${fdcState.autoCount > 0 ? fdcState.autoCount : 0})`;
+      elLauncherBadge.style.color = 'var(--neon-cyan)';
+    }
+  }
+}
+
+function addFdcFeedLog(type, tag, title, desc) {
+  const timeStr = (ch && ch.t !== undefined ? ch.t.toFixed(1) : '0.0') + 's';
+  fdcState.feedLogs.unshift({ type, tag, title, desc, time: timeStr });
+  if (fdcState.feedLogs.length > 25) fdcState.feedLogs.pop();
+  renderFdcFeed();
+}
+
+function renderFdcFeed() {
+  const feedEl = $('console-feed');
+  if (!feedEl) return;
+  const filtered = fdcState.filter === 'all'
+    ? fdcState.feedLogs
+    : fdcState.feedLogs.filter((item) => item.type === fdcState.filter);
+
+  if (filtered.length === 0) {
+    feedEl.innerHTML = '<div class="fc-feed-empty">해당 분류의 수신 내역이 없습니다.</div>';
+    return;
+  }
+
+  feedEl.innerHTML = filtered.map((item) => `
+    <div class="fc-card ${item.type}">
+      <div class="fc-card-top">
+        <span class="fc-card-tag ${item.type}">${item.tag}</span>
+        <span class="fc-card-time font-mono">${item.time}</span>
+      </div>
+      <div class="fc-card-title">${item.title}</div>
+      ${item.desc ? `<div class="fc-card-desc">${item.desc}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function resetFdcPmAlarm() {
+  if (fdcState.pmAlarmActive) {
+    fdcState.pmAlarmActive = false;
+    fdcState.warnCount = Math.max(0, fdcState.warnCount - 1);
+    renderFdcHud();
+    const pinnedEl = $('console-pinned');
+    if (pinnedEl) {
+      pinnedEl.innerHTML = '<div class="fc-pinned-empty">현재 긴급 세정 권고 없음 (챔버 내벽 정상)</div>';
+    }
+  }
+  addFdcFeedLog('auto', '🧼 WAC CLEAN', '챔버 플라즈마 건식 세정 완료', '내벽 폴리머 오염도 0% 초기화 및 밸브 제어 마진 100% 복구');
+}
+
+function evaluateFdcAlarms(s, clogPct, deg) {
+  // 1. 챔버 내벽 오염도 한계 도달 (WAC 세정 필요 알람)
+  const pinnedEl = $('console-pinned');
+  if (clogPct >= 75 && !fdcState.pmAlarmActive) {
+    fdcState.pmAlarmActive = true;
+    fdcState.warnCount++;
+    renderFdcHud();
+
+    if (pinnedEl) {
+      pinnedEl.innerHTML = `
+        <div class="fc-card warn" id="card-clog-pm">
+          <div class="fc-card-top">
+            <span class="fc-card-tag warn">🟡 PM REQUIRED</span>
+            <span class="fc-card-time font-mono">${s.t.toFixed(1)}s</span>
+          </div>
+          <div class="fc-card-title">⚠️ 챔버 내벽 폴리머 증착 임계 (오염도 ${clogPct.toFixed(0)}%)</div>
+          <div class="fc-card-desc">C₄F₈ 연속 가공으로 배기 단면적 축소 · 밸브 제어 마진 고갈 위험</div>
+          <button type="button" class="fc-action-btn" id="btn-fc-clean">🧼 지금 챔버 세정(WAC) 실행</button>
+        </div>
+      `;
+      const btnFcClean = $('btn-fc-clean');
+      if (btnFcClean) {
+        btnFcClean.addEventListener('click', () => {
+          cleanLot(true);
+        });
+      }
+    }
+  } else if (clogPct < 75 && fdcState.pmAlarmActive) {
+    fdcState.pmAlarmActive = false;
+    fdcState.warnCount = Math.max(0, fdcState.warnCount - 1);
+    renderFdcHud();
+    if (pinnedEl) {
+      pinnedEl.innerHTML = '<div class="fc-pinned-empty">현재 긴급 세정 권고 없음 (챔버 내벽 정상)</div>';
+    }
+  }
+
+  // 2. 누설 감지 고장 인터락 알람
+  const hasLeak = (ch.qLeak && ch.qLeak > 0) || (ch.q1 && ch.q1 > 0);
+  if (hasLeak && !fdcState.leakAlarmActive) {
+    fdcState.leakAlarmActive = true;
+    fdcState.critCount++;
+    renderFdcHud();
+    const qVal = (ch.qLeak > 0 ? ch.qLeak : ch.q1).toFixed(3);
+    addFdcFeedLog('crit', '🔴 VAC LEAK', `진공 누설 감지 (Q_leak=${qVal} Pa·m³/s)`, '챔버 밀폐 불량 또는 아웃가싱 과다 · 밸브 강제 개방 보상 중');
+  } else if (!hasLeak && fdcState.leakAlarmActive) {
+    fdcState.leakAlarmActive = false;
+    fdcState.critCount = Math.max(0, fdcState.critCount - 1);
+    renderFdcHud();
+    addFdcFeedLog('auto', '🟢 LEAK CLEAR', '진공 누설 정상 복구', 'Q_leak = 0 Pa·m³/s · 베이스라인 회귀');
+  }
+
+  // 3. 가스 전환 시 실시간 APC 제어 스트림 로그 등록 (중복 방지: 위상 바뀔 때 1회)
+  const currentPhase = s.boschMode ? s.boschPhase : 'steady';
+  if (currentPhase !== fdcState.lastPhase) {
+    fdcState.lastPhase = currentPhase;
+    fdcState.autoCount++;
+    renderFdcHud();
+
+    if (s.boschMode) {
+      const isPass = s.boschPhase === 'pass';
+      const gasName = isPass ? 'C₄F₈ 보호막 단계' : 'SF₆ 식각 단계';
+      const flowSccm = isPass ? '385.0 sccm' : '817.2 sccm';
+      const desc = `공급 유량 ${flowSccm} 유입 · 40.0 mTorr 사수를 위해 스로틀 밸브 θ=${deg.toFixed(1)}° 즉각 보상`;
+      addFdcFeedLog('auto', '⚡ APC CLOSED-LOOP', `${gasName} 밸브 연동 보정`, desc);
+    } else {
+      addFdcFeedLog('auto', '⚡ APC CLOSED-LOOP', '정속 Ar 정상상태 제어', `유량 592.2 sccm · 스로틀 밸브 θ=${deg.toFixed(1)}° 정격 안정화`);
+    }
+  }
+}
+
 // ---------------------------------------------------------------- 계기 갱신 (자동차 속도계 다이얼 & 가로 게이지 연동)
 function updateGauges(s) {
   const needle = $('speedo-needle-group');
@@ -127,7 +345,6 @@ function updateGauges(s) {
   const elFillS = $('bar-fill-seff');
   const elFillQ = $('bar-fill-q');
   const badgeP = $('g-press-status-badge');
-  const knMarker = $('kn-marker');
   const tagAuto = $('speedo-live-tag');
 
   if (!s.isProcessing) {
@@ -145,8 +362,18 @@ function updateGauges(s) {
 
     $('g-seff').textContent = '0.0';
     $('g-q').textContent = '0.0000';
-    $('g-kn').textContent = '0.000';
-    $('g-regime').textContent = '공정 대기';
+    const elKn = $('g-kn'); if (elKn) elKn.textContent = '0.000';
+    const elReg = $('g-regime'); if (elReg) elReg.textContent = '공정 대기';
+    const elClog = $('g-clog'); if (elClog) elClog.textContent = '0.0%';
+    const elClogBadge = $('g-clog-badge');
+    if (elClogBadge) {
+      elClogBadge.textContent = 'CLEAN';
+      elClogBadge.className = 'h-meter-badge ok';
+    }
+    const elFillClog = $('bar-fill-clog');
+    if (elFillClog) elFillClog.style.width = '0%';
+    const elClogMargin = $('g-clog-margin');
+    if (elClogMargin) elClogMargin.textContent = '100%';
     $('g-time').textContent = s.t.toFixed(1);
 
     // 2. 속도계 게이지 (IDLE: 바닥 0° 위치 휴지)
@@ -166,7 +393,6 @@ function updateGauges(s) {
       badgeP.textContent = 'STANDBY';
       badgeP.className = 'h-meter-badge standby';
     }
-    if (knMarker) knMarker.style.left = '0%';
     return;
   }
 
@@ -188,8 +414,8 @@ function updateGauges(s) {
 
   $('g-seff').textContent = m3sToLps(s.sEff).toFixed(1);
   $('g-q').textContent = s.Q.toFixed(4);
-  $('g-kn').textContent = s.Kn < 0.01 ? s.Kn.toExponential(2) : s.Kn.toFixed(3);
-  $('g-regime').textContent = s.regime.name;
+  const elKn = $('g-kn'); if (elKn) elKn.textContent = s.Kn < 0.01 ? s.Kn.toExponential(2) : s.Kn.toFixed(3);
+  const elReg = $('g-regime'); if (elReg) elReg.textContent = s.regime.name;
   $('g-time').textContent = s.t.toFixed(1);
 
   // 1. 자동차 속도계 바늘 & 아크 회전
@@ -239,18 +465,40 @@ function updateGauges(s) {
   const qPct = Math.max(0, Math.min(100, (s.Q / 2.0) * 100));
   if (elFillQ) elFillQ.style.width = `${qPct.toFixed(1)}%`;
 
-  // 5. 크누센 마커 위치 (로그 스케일 대역)
-  if (knMarker) {
-    let knPos = 50;
-    if (s.Kn <= 0.01) {
-      knPos = Math.max(4, (s.Kn / 0.01) * 33);
-    } else if (s.Kn >= 1.0) {
-      knPos = Math.min(96, 67 + ((s.Kn - 1.0) / 5.0) * 33);
+  // 5. 가로 막대 4: 챔버 내벽 오염도 (Wall Clog) & 세정 마진
+  const elClog = $('g-clog');
+  const elClogBadge = $('g-clog-badge');
+  const elFillClog = $('bar-fill-clog');
+  const elClogMargin = $('g-clog-margin');
+
+  // 오염도 계산: 10매 시퀀스에서 웨이퍼 진행도에 따라 오염 누적
+  // 1매: 0%, 5매: 38%, 8매: 66%, 9매: 76% (주의), 10매: 88% (세정 필요)
+  // C4F8 패시베이션 단계 시 폴리머 증착으로 일시 미세 상승(+3.5%)
+  const waferIdx = (lotState && lotState.currentWafer) ? lotState.currentWafer : 1;
+  const waferRatio = Math.max(0, Math.min(1, (waferIdx - 1) / 9));
+  const passBonus = (s.boschMode && s.boschPhase === 'pass') ? 3.5 : 0.0;
+  const clogPct = Math.max(0, Math.min(100, waferRatio * 85 + passBonus));
+  const marginPct = Math.max(0, 100 - clogPct);
+
+  if (elClog) elClog.textContent = `${clogPct.toFixed(1)}%`;
+  if (elFillClog) elFillClog.style.width = `${clogPct.toFixed(1)}%`;
+  if (elClogMargin) elClogMargin.textContent = `${marginPct.toFixed(0)}%`;
+
+  if (elClogBadge) {
+    if (clogPct < 60) {
+      elClogBadge.textContent = 'CLEAN';
+      elClogBadge.className = 'h-meter-badge ok';
+    } else if (clogPct < 75) {
+      elClogBadge.textContent = 'ACCUM';
+      elClogBadge.className = 'h-meter-badge warn';
     } else {
-      knPos = 33 + ((s.Kn - 0.01) / 0.99) * 34;
+      elClogBadge.textContent = 'WAC REQ';
+      elClogBadge.className = 'h-meter-badge bad';
     }
-    knMarker.style.left = `${knPos.toFixed(1)}%`;
   }
+
+  // FDC 알람 엔진 평가 및 콘솔 실시간 연동
+  evaluateFdcAlarms(s, clogPct, deg);
 }
 
 // ---------------------------------------------------------------- 3D / 2D 뷰포트 토글 모드
@@ -546,6 +794,7 @@ function nextWafer() {
 function cleanLot(advance = true) {
   pauseLotProcess();
   ch.cleanChamber();
+  resetFdcPmAlarm();
   if (advance && lotState.currentWafer >= 10) {
     lotState.currentLot = (lotState.currentLot % 10) + 1;
   }
@@ -625,6 +874,13 @@ if (urlParams.get('lot')) {
   const targetLot = parseInt(urlParams.get('lot'), 10);
   if (!isNaN(targetLot) && targetLot >= 1 && targetLot <= 10) {
     lotState.currentLot = targetLot;
+    updateLotUI();
+  }
+}
+if (urlParams.get('wafer')) {
+  const targetWafer = parseInt(urlParams.get('wafer'), 10);
+  if (!isNaN(targetWafer) && targetWafer >= 1 && targetWafer <= 10) {
+    lotState.currentWafer = targetWafer;
     updateLotUI();
   }
 }
@@ -1047,4 +1303,5 @@ $('b-ror').addEventListener('click', () => {
   if (nOk !== res.length) b.classList.add('bad');
 })();
 
+initFdcConsole();
 requestAnimationFrame(frame);

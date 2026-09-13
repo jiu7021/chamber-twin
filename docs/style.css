@@ -471,7 +471,8 @@ b { font-weight: 600; color: var(--ink); }
 
 .chamber-3d-wrap {
   width: 100%;
-  height: 330px;
+  flex: 1;
+  min-height: 480px;
   position: relative;
   border-radius: var(--radius-12);
   overflow: hidden;
@@ -610,7 +611,8 @@ b { font-weight: 600; color: var(--ink); }
 }
 
 .hud-3d-valve {
-  top: 128px;
+  top: 48%;
+  transform: translateY(-50%);
   right: 10px;
   border-right: 2px solid var(--neon-cyan);
   text-align: right;
@@ -661,8 +663,8 @@ b { font-weight: 600; color: var(--ink); }
 
 #chamber-svg {
   width: 100%;
-  height: 100%;
-  max-height: 330px;
+  flex: 1;
+  min-height: 480px;
   display: block;
 }
 
@@ -993,6 +995,38 @@ b { font-weight: 600; color: var(--ink); }
   transition: left 0.12s ease-out;
   transform: translateX(-50%);
   z-index: 4;
+}
+
+/* 챔버 내벽 오염도 트랙 & 세정 권고 마커 */
+.clog-track {
+  overflow: visible;
+}
+.clog-safe-zone {
+  position: absolute;
+  left: 0;
+  width: 60%;
+  top: -2px;
+  bottom: -2px;
+  background: rgba(48, 209, 88, 0.14);
+  border-right: 1px dashed rgba(48, 209, 88, 0.5);
+  border-radius: 2px 0 0 2px;
+  z-index: 1;
+  pointer-events: none;
+}
+.clog-warn-tick {
+  position: absolute;
+  left: 75%;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: #ff9f0a;
+  box-shadow: 0 0 6px #ff9f0a;
+  z-index: 3;
+  border-radius: 1px;
+}
+.h-meter-fill.clog-fill {
+  background: linear-gradient(90deg, #10b981 0%, #00f0ff 50%, #ff9f0a 75%, #ff453a 100%);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
 }
 
 .h-meter-foot {
@@ -1980,4 +2014,379 @@ b { font-weight: 600; color: var(--ink); }
 }
 .lot-header-hint b {
   color: #00f0ff;
+}
+
+/* ═══ 플로팅 팹 FDC 알람 관제 콘솔 (CMP & P-T 스타일 헤리티지) ═══ */
+.fab-console {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 385px;
+  max-height: 540px;
+  background: rgba(14, 18, 26, 0.90);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(0, 240, 255, 0.22);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 1px rgba(0, 240, 255, 0.4);
+  display: flex;
+  flex-direction: column;
+  z-index: 999;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+}
+.fab-console.is-closed {
+  transform: scale(0.85) translateY(40px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 콘솔 헤더 */
+.fc-head {
+  padding: 12px 16px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+.fc-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fc-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #30d158;
+  box-shadow: 0 0 8px #30d158;
+  transition: all 0.2s ease;
+}
+.fc-pulse.warn {
+  background: #ff9f0a;
+  box-shadow: 0 0 10px #ff9f0a;
+  animation: fdcPulse 1.2s infinite alternate;
+}
+.fc-pulse.crit {
+  background: #ff453a;
+  box-shadow: 0 0 12px #ff453a;
+  animation: fdcPulse 0.8s infinite alternate;
+}
+@keyframes fdcPulse {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(1.25); opacity: 1; }
+}
+.fc-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+.fc-cnt-badge {
+  background: rgba(0, 240, 255, 0.14);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: var(--neon-cyan);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.fc-ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fc-ctrl-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+.fc-ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+/* 3단계 빠른 HUD */
+.fc-hud {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.28);
+}
+.fc-hud-box {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  padding: 6px 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.fc-hud-box:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+.fc-hud-num {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.fc-hud-lbl {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 2px;
+}
+.fc-hud-box.crit .fc-hud-num { color: #ff453a; }
+.fc-hud-box.warn .fc-hud-num { color: #ff9f0a; }
+.fc-hud-box.auto .fc-hud-num { color: var(--neon-cyan); }
+
+/* 필터 탭 바 */
+.fc-filter-bar {
+  display: flex;
+  gap: 4px;
+  padding: 7px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.015);
+}
+.fc-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 2px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+.fc-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+.fc-tab.on {
+  color: #ffffff;
+  background: rgba(0, 240, 255, 0.14);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 본문 스크롤 영역 (유려한 네온 시안 스크롤바) */
+.fc-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+}
+.fc-body::-webkit-scrollbar {
+  width: 6px;
+}
+.fc-body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 999px;
+}
+.fc-body::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.35);
+  border-radius: 999px;
+}
+.fc-body::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-cyan);
+  box-shadow: 0 0 6px var(--neon-cyan);
+}
+
+.fc-sec-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+.fc-sec-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.fc-sec-dot.warn { background: #ff9f0a; box-shadow: 0 0 6px #ff9f0a; }
+.fc-sec-dot.auto { background: var(--neon-cyan); box-shadow: 0 0 6px var(--neon-cyan); }
+.fc-stream-header {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.fc-pinned-list, .fc-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.fc-pinned-empty, .fc-feed-empty {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+/* 콘솔 이벤트 카드 */
+.fc-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+.fc-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+.fc-card.auto {
+  border-left: 3px solid var(--neon-cyan);
+}
+.fc-card.warn {
+  border-left: 3px solid #ff9f0a;
+  background: rgba(255, 159, 10, 0.07);
+  box-shadow: 0 0 14px rgba(255, 159, 10, 0.15);
+}
+.fc-card.crit {
+  border-left: 3px solid #ff453a;
+  background: rgba(255, 69, 58, 0.1);
+  box-shadow: 0 0 16px rgba(255, 69, 58, 0.25);
+}
+.fc-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.fc-card-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.fc-card-tag.warn { background: rgba(255, 159, 10, 0.2); color: #ff9f0a; }
+.fc-card-tag.auto { background: rgba(0, 240, 255, 0.16); color: var(--neon-cyan); }
+.fc-card-tag.crit { background: rgba(255, 69, 58, 0.2); color: #ff453a; }
+.fc-card-time {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+}
+.fc-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.35;
+}
+.fc-card-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+}
+.fc-action-btn {
+  margin-top: 6px;
+  background: linear-gradient(135deg, #ff9f0a 0%, #ff453a 100%);
+  color: #ffffff;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(255, 159, 10, 0.4);
+  width: 100%;
+  text-align: center;
+}
+.fc-action-btn:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 4px 14px rgba(255, 159, 10, 0.6);
+  transform: translateY(-1px);
+}
+
+/* 플로팅 런처 알약 배지 */
+.fab-launcher {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  background: rgba(14, 18, 26, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 999px;
+  padding: 9px 16px;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 10px rgba(0, 240, 255, 0.25);
+  z-index: 990;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fab-launcher:hover {
+  background: rgba(24, 30, 44, 0.96);
+  border-color: var(--neon-cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.4);
+}
+.fab-launcher.is-hidden {
+  transform: scale(0.8) translateY(20px);
+  opacity: 0;
+  pointer-events: none;
+}
+.fab-launcher-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #30d158;
+  box-shadow: 0 0 8px #30d158;
+}
+.fab-launcher-dot.warn {
+  background: #ff9f0a;
+  box-shadow: 0 0 8px #ff9f0a;
+  animation: fdcPulse 1.2s infinite alternate;
+}
+.fab-launcher-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.fab-launcher-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--neon-cyan);
 }
